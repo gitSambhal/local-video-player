@@ -1,0 +1,6 @@
+{
+  "name": "Video Player",
+  "description": "A modern, gesture-controlled local-first media player supporting versatile codecs, offline playlists, audio visualizers, P2P watch rooms, and custom equalizer settings.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
