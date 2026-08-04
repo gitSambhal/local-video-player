@@ -1,23 +1,23 @@
 import React, { useState } from 'react';
-import { MediaItem, SampleMedia } from '../types';
+import { MediaItem } from '../types';
 import { SAMPLE_MEDIA_LIST } from '../data/sampleMedia';
 import {
   Upload,
-  Link,
+  Link as LinkIcon,
   Tv,
-  Radio,
-  Sparkles,
   Play,
   Clock,
   Volume2,
-  FileVideo,
   Languages,
   Film,
-  Music,
-  Globe,
   Trash2,
-  ArrowRight,
+  Search,
+  Plus,
+  Info,
+  ChevronRight,
   ShieldCheck,
+  Check,
+  Sparkles,
 } from 'lucide-react';
 
 interface WelcomeLauncherProps {
@@ -37,7 +37,21 @@ export const WelcomeLauncher: React.FC<WelcomeLauncherProps> = ({
 }) => {
   const [streamUrl, setStreamUrl] = useState('');
   const [streamTitle, setStreamTitle] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
   const [isDragging, setIsDragging] = useState(false);
+  const [activeCategory, setActiveCategory] = useState<'home' | 'movies' | 'iptv' | 'multiaudio' | 'myList'>('home');
+  const [showUrlModal, setShowUrlModal] = useState(false);
+
+  // Hero item fallback (default to Tears of Steel or top recent)
+  const heroMedia: MediaItem = recentMedia[0] || {
+    id: 'hero-1',
+    title: 'Tears of Steel (Multi-Audio Special Edition)',
+    src: 'https://demo.unified-streaming.com/k8s/features/stable/video/tears-of-steel/tears-of-steel.ism/.m3u8',
+    type: 'sample',
+    format: 'Multi-Audio HLS',
+    thumbnail: 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=1200&q=80',
+    description: 'In a dystopian future, a group of scientists and soldiers gather at Oude Kerk in Amsterdam to stage a desperate rescue attempt using quantum time anchors and multi-channel audio synthesis.',
+  };
 
   const handleFileUpload = (files: FileList | null) => {
     if (!files || files.length === 0) return;
@@ -51,7 +65,7 @@ export const WelcomeLauncher: React.FC<WelcomeLauncherProps> = ({
 
     const objectUrl = URL.createObjectURL(file);
     const isAudio = file.type.startsWith('audio');
-    const mediaItem: MediaItem = {
+    const mediaItem: MediaItem & { fileObj?: File } = {
       id: `file-${Date.now()}`,
       title: file.name,
       src: objectUrl,
@@ -61,6 +75,7 @@ export const WelcomeLauncher: React.FC<WelcomeLauncherProps> = ({
       size: file.size,
       addedAt: Date.now(),
       isAudioOnly: isAudio,
+      fileObj: file,
     };
     onSelectMedia(mediaItem);
   };
@@ -82,10 +97,10 @@ export const WelcomeLauncher: React.FC<WelcomeLauncherProps> = ({
 
     const mediaItem: MediaItem = {
       id: `url-${Date.now()}`,
-      title: streamTitle.trim() || src.split('/').pop()?.split('?')[0] || 'Stream Link',
+      title: streamTitle.trim() || src.split('/').pop()?.split('?')[0] || 'Network Stream',
       src,
       type: 'url',
-      format: isHls ? 'HLS Stream' : isAudio ? 'AUDIO' : 'MP4/Web',
+      format: isHls ? 'HLS Stream' : isAudio ? 'AUDIO' : 'MP4 Web',
       addedAt: Date.now(),
       isAudioOnly: isAudio,
       isLive: isHls,
@@ -93,6 +108,7 @@ export const WelcomeLauncher: React.FC<WelcomeLauncherProps> = ({
     onSelectMedia(mediaItem);
     setStreamUrl('');
     setStreamTitle('');
+    setShowUrlModal(false);
   };
 
   const handleDragOver = (e: React.DragEvent) => {
@@ -111,64 +127,179 @@ export const WelcomeLauncher: React.FC<WelcomeLauncherProps> = ({
     handleFileUpload(e.dataTransfer.files);
   };
 
-  return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col items-center justify-between p-4 sm:p-8 selection:bg-cyan-500 selection:text-slate-950 font-sans">
-      {/* Background Decorative Gradients */}
-      <div className="fixed inset-0 pointer-events-none overflow-hidden z-0">
-        <div className="absolute -top-40 -left-40 w-96 h-96 bg-cyan-600/15 rounded-full blur-3xl" />
-        <div className="absolute top-1/3 -right-40 w-96 h-96 bg-purple-600/15 rounded-full blur-3xl" />
-        <div className="absolute -bottom-40 left-1/3 w-96 h-96 bg-blue-600/15 rounded-full blur-3xl" />
-      </div>
+  const filteredSamples = SAMPLE_MEDIA_LIST.filter(
+    (item) =>
+      item.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      item.description.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
-      <div className="relative z-10 w-full max-w-5xl flex flex-col gap-8 my-auto py-6">
-        {/* Header / Brand */}
-        <div className="flex flex-col items-center text-center gap-3">
-          <div className="flex items-center gap-3 px-4 py-1.5 rounded-full bg-slate-900/90 border border-cyan-500/30 text-cyan-400 text-xs font-semibold tracking-wide shadow-lg shadow-cyan-950/50">
-            <Sparkles className="w-4 h-4 text-cyan-400" />
-            <span>VLC Web Engine & Multi-Track IPTV Player</span>
+  return (
+    <div
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+      className="min-h-screen bg-[#141414] text-neutral-100 font-sans selection:bg-red-600 selection:text-white relative overflow-x-hidden"
+    >
+      {/* Netflix Top Navigation Header */}
+      <nav className="fixed top-0 left-0 right-0 z-40 bg-gradient-to-b from-black/90 via-black/60 to-transparent px-4 sm:px-12 py-3.5 flex items-center justify-between transition-all duration-300 backdrop-blur-sm">
+        {/* Left: Netflix Red Logo & Category Tabs */}
+        <div className="flex items-center gap-6 sm:gap-10">
+          <div className="flex items-center gap-2 cursor-pointer" onClick={() => setActiveCategory('home')}>
+            <span className="text-red-600 font-black text-2xl sm:text-3xl tracking-tighter uppercase font-serif drop-shadow-md">
+              VORTEX
+            </span>
+            <span className="text-[10px] uppercase font-bold tracking-widest text-neutral-400 bg-neutral-900 border border-neutral-800 px-1.5 py-0.5 rounded hidden sm:inline-block">
+              NETFLIX UI
+            </span>
           </div>
 
-          <h1 className="text-3xl sm:text-5xl font-black text-slate-100 tracking-tight leading-tight">
-            Open File or <span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-teal-300 to-blue-400">Stream Link</span>
-          </h1>
-
-          <p className="text-xs sm:text-sm text-slate-400 max-w-xl leading-relaxed">
-            Select a media file from your device, paste an HLS stream / M3U playlist, or pick a video with <strong className="text-cyan-300">multi-audio tracks</strong> to get started.
-          </p>
+          <div className="hidden md:flex items-center gap-6 text-xs font-semibold text-neutral-300">
+            <button
+              onClick={() => setActiveCategory('home')}
+              className={`transition-colors hover:text-white ${activeCategory === 'home' ? 'text-white font-bold' : ''}`}
+            >
+              Home
+            </button>
+            <button
+              onClick={() => setActiveCategory('movies')}
+              className={`transition-colors hover:text-white ${activeCategory === 'movies' ? 'text-white font-bold' : ''}`}
+            >
+              Sample Movies
+            </button>
+            <button
+              onClick={() => onOpenIPTV('https://iptv-org.github.io/iptv/index.m3u')}
+              className="transition-colors hover:text-white flex items-center gap-1.5"
+            >
+              <Tv className="w-3.5 h-3.5 text-red-500" />
+              <span>Live IPTV</span>
+            </button>
+            <button
+              onClick={() => setActiveCategory('multiaudio')}
+              className={`transition-colors hover:text-white flex items-center gap-1.5 ${activeCategory === 'multiaudio' ? 'text-white font-bold' : ''}`}
+            >
+              <Languages className="w-3.5 h-3.5 text-red-500" />
+              <span>Multi-Audio</span>
+            </button>
+            {recentMedia.length > 0 && (
+              <button
+                onClick={() => setActiveCategory('myList')}
+                className={`transition-colors hover:text-white ${activeCategory === 'myList' ? 'text-white font-bold' : ''}`}
+              >
+                My Recents ({recentMedia.length})
+              </button>
+            )}
+          </div>
         </div>
 
-        {/* Core Quick Action Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {/* Card 1: Drag & Drop / Local File Upload */}
-          <div
-            onDragOver={handleDragOver}
-            onDragLeave={handleDragLeave}
-            onDrop={handleDrop}
-            className={`relative group bg-slate-900/80 backdrop-blur-md border ${
-              isDragging ? 'border-cyan-400 bg-cyan-950/30' : 'border-slate-800 hover:border-cyan-500/60'
-            } rounded-2xl p-6 transition-all duration-300 shadow-xl flex flex-col justify-between gap-4`}
+        {/* Right: Search, Upload Local, Stream URL, Profile Avatar */}
+        <div className="flex items-center gap-3 sm:gap-4">
+          {/* Search Bar */}
+          <div className="relative hidden sm:block">
+            <Search className="w-4 h-4 text-neutral-400 absolute left-3 top-1/2 -translate-y-1/2" />
+            <input
+              type="text"
+              placeholder="Titles, audio tracks..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="bg-neutral-900/90 border border-neutral-700/80 rounded-full pl-9 pr-4 py-1.5 text-xs text-neutral-100 placeholder-neutral-500 focus:outline-none focus:border-red-600 w-44 lg:w-60 transition-all"
+            />
+          </div>
+
+          {/* Open Stream URL Modal trigger */}
+          <button
+            onClick={() => setShowUrlModal(true)}
+            className="p-2 sm:px-3 sm:py-1.5 rounded-full bg-neutral-900 hover:bg-neutral-800 border border-neutral-700 text-neutral-200 text-xs font-medium flex items-center gap-1.5 transition-all"
+            title="Play Stream / M3U Link"
           >
-            <div className="flex items-start justify-between">
-              <div className="p-3 rounded-xl bg-cyan-950/80 text-cyan-400 border border-cyan-700/50 shadow-inner">
-                <Upload className="w-6 h-6" />
-              </div>
-              <span className="text-[10px] font-mono font-bold uppercase tracking-wider px-2.5 py-1 rounded-full bg-slate-800 text-slate-300 border border-slate-700">
-                Local Storage
-              </span>
-            </div>
+            <LinkIcon className="w-3.5 h-3.5 text-red-500" />
+            <span className="hidden lg:inline">Stream URL</span>
+          </button>
 
-            <div>
-              <h2 className="text-lg font-bold text-slate-100 group-hover:text-cyan-400 transition-colors">
-                Browse & Open Local Media
-              </h2>
-              <p className="text-xs text-slate-400 mt-1">
-                Drag and drop or select video files (.mp4, .mkv, .webm, .avi), audio tracks (.mp3, .flac), or .m3u playlists.
-              </p>
-            </div>
+          {/* Upload File Button */}
+          <label className="p-2 sm:px-3 sm:py-1.5 rounded-full bg-red-600 hover:bg-red-700 text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-md shadow-red-950/50 transition-all transform active:scale-95">
+            <Upload className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Open Movie</span>
+            <input
+              type="file"
+              accept="video/*,audio/*,.m3u,.m3u8,.mp4,.mkv,.webm,.mp3,.wav,.flac"
+              onChange={(e) => handleFileUpload(e.target.files)}
+              className="hidden"
+            />
+          </label>
 
-            <label className="w-full py-3 px-4 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-slate-950 font-bold text-xs flex items-center justify-center gap-2 cursor-pointer shadow-lg shadow-cyan-950/60 transition-all transform active:scale-[0.98]">
-              <FileVideo className="w-4 h-4" />
-              <span>Choose Media File...</span>
+          {/* Profile Avatar */}
+          <div className="w-8 h-8 rounded-md bg-gradient-to-tr from-red-700 to-red-500 text-white font-black text-xs flex items-center justify-center border border-red-400/50 shadow-md">
+            S
+          </div>
+        </div>
+      </nav>
+
+      {/* Hero Billboard Feature Banner (Netflix style) */}
+      <div className="relative w-full h-[65vh] sm:h-[75vh] flex items-end pb-12 sm:pb-16 px-4 sm:px-12 z-10 overflow-hidden">
+        {/* Background Image & Vignette Gradients */}
+        <div className="absolute inset-0 pointer-events-none z-0">
+          <img
+            src={
+              heroMedia.thumbnail ||
+              'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=1600&q=80'
+            }
+            alt={heroMedia.title}
+            className="w-full h-full object-cover object-center opacity-65 scale-105"
+          />
+          {/* Netflix Top & Bottom Gradients */}
+          <div className="absolute inset-0 bg-gradient-to-t from-[#141414] via-[#141414]/40 to-black/60" />
+          <div className="absolute inset-0 bg-gradient-to-r from-[#141414] via-transparent to-[#141414]/50" />
+        </div>
+
+        {/* Hero Content */}
+        <div className="relative z-10 max-w-2xl flex flex-col gap-3.5 animate-fade-in">
+          {/* Netflix N Badge */}
+          <div className="flex items-center gap-2">
+            <span className="text-red-600 font-black text-xl tracking-tighter font-serif">N</span>
+            <span className="text-[11px] font-bold uppercase tracking-widest text-neutral-300">
+              FEATURED STREAM • DUAL AUDIO
+            </span>
+          </div>
+
+          {/* Hero Title */}
+          <h1 className="text-3xl sm:text-5xl font-black text-white tracking-tight leading-tight drop-shadow-xl">
+            {heroMedia.title}
+          </h1>
+
+          {/* Metadata Badges */}
+          <div className="flex flex-wrap items-center gap-2.5 text-xs text-neutral-300 font-medium">
+            <span className="text-emerald-400 font-bold">99% Match</span>
+            <span className="px-1.5 py-0.5 rounded border border-neutral-600 text-[10px] font-mono text-neutral-300">
+              16+
+            </span>
+            <span className="px-1.5 py-0.5 rounded border border-neutral-600 text-[10px] font-mono text-neutral-300">
+              4K Ultra HD
+            </span>
+            <span className="px-2 py-0.5 rounded bg-red-950/80 text-red-300 border border-red-700/60 text-[10px] font-bold">
+              Multi-Language Dubbed
+            </span>
+            <span>2024</span>
+          </div>
+
+          {/* Hero Description */}
+          <p className="text-xs sm:text-sm text-neutral-300/90 line-clamp-3 leading-relaxed drop-shadow-md">
+            {heroMedia.description ||
+              'High-fidelity media playback with embedded multi-audio stream extraction, custom HLS streaming engine, and subtitle controls.'}
+          </p>
+
+          {/* Action Buttons */}
+          <div className="flex items-center gap-3 pt-2">
+            <button
+              onClick={() => onSelectMedia(heroMedia)}
+              className="px-6 py-2.5 sm:px-8 sm:py-3 rounded-md bg-white hover:bg-neutral-200 text-black font-extrabold text-sm flex items-center gap-2.5 shadow-xl transition-all transform active:scale-95"
+            >
+              <Play className="w-5 h-5 fill-current text-black" />
+              <span>Play Now</span>
+            </button>
+
+            <label className="px-5 py-2.5 sm:py-3 rounded-md bg-neutral-800/80 hover:bg-neutral-700/90 border border-neutral-700 text-white font-bold text-xs sm:text-sm flex items-center gap-2 shadow-lg backdrop-blur-md cursor-pointer transition-all transform active:scale-95">
+              <Upload className="w-4 h-4 text-red-500" />
+              <span>Open Local Movie</span>
               <input
                 type="file"
                 accept="video/*,audio/*,.m3u,.m3u8,.mp4,.mkv,.webm,.mp3,.wav,.flac"
@@ -176,152 +307,117 @@ export const WelcomeLauncher: React.FC<WelcomeLauncherProps> = ({
                 className="hidden"
               />
             </label>
-          </div>
 
-          {/* Card 2: Stream URL & M3U Link Input */}
-          <div className="bg-slate-900/80 backdrop-blur-md border border-slate-800 hover:border-cyan-500/60 rounded-2xl p-6 transition-all duration-300 shadow-xl flex flex-col justify-between gap-4">
-            <div className="flex items-start justify-between">
-              <div className="p-3 rounded-xl bg-purple-950/80 text-purple-400 border border-purple-700/50 shadow-inner">
-                <Link className="w-6 h-6" />
-              </div>
-              <span className="text-[10px] font-mono font-bold uppercase tracking-wider px-2.5 py-1 rounded-full bg-slate-800 text-slate-300 border border-slate-700">
-                Network Stream
-              </span>
-            </div>
-
-            <div>
-              <h2 className="text-lg font-bold text-slate-100">Play URL or M3U Stream</h2>
-              <p className="text-xs text-slate-400 mt-1">
-                Paste any live HTTP/HLS stream link (.m3u8), direct video URL, or M3U IPTV index URL.
-              </p>
-            </div>
-
-            <form onSubmit={handleStreamSubmit} className="flex flex-col gap-2">
-              <input
-                type="url"
-                required
-                placeholder="https://example.com/live/stream.m3u8..."
-                value={streamUrl}
-                onChange={(e) => setStreamUrl(e.target.value)}
-                className="w-full bg-slate-950 border border-slate-700/80 rounded-xl px-3.5 py-2 text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:border-cyan-500 font-mono"
-              />
-              <button
-                type="submit"
-                className="w-full py-2.5 px-4 rounded-xl bg-slate-800 hover:bg-slate-700 text-cyan-300 font-bold text-xs flex items-center justify-center gap-2 transition-all border border-slate-700"
-              >
-                <Play className="w-4 h-4 fill-current" />
-                <span>Open Stream / M3U Link</span>
-              </button>
-            </form>
+            <button
+              onClick={() => onOpenIPTV('https://iptv-org.github.io/iptv/index.m3u')}
+              className="px-4 py-2.5 sm:py-3 rounded-md bg-neutral-900/80 hover:bg-neutral-800 border border-neutral-700 text-neutral-300 hover:text-white font-semibold text-xs sm:text-sm flex items-center gap-2 backdrop-blur-md transition-all hidden sm:flex"
+            >
+              <Tv className="w-4 h-4 text-red-500" />
+              <span>Live TV Index</span>
+            </button>
           </div>
         </div>
+      </div>
 
-        {/* Section: IPTV Channels & Multi-Audio Highlight */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {/* Action: Open IPTV Browser */}
-          <div
-            onClick={() => onOpenIPTV('https://iptv-org.github.io/iptv/index.m3u')}
-            className="group cursor-pointer bg-gradient-to-br from-slate-900/90 to-cyan-950/30 border border-cyan-800/40 hover:border-cyan-400 p-5 rounded-2xl transition-all shadow-lg flex flex-col justify-between gap-3"
-          >
-            <div className="flex items-center justify-between">
-              <div className="p-2.5 rounded-xl bg-cyan-950 text-cyan-400 border border-cyan-700/50">
-                <Tv className="w-5 h-5" />
-              </div>
-              <ArrowRight className="w-4 h-4 text-cyan-400 group-hover:translate-x-1 transition-transform" />
-            </div>
-            <div>
-              <h3 className="text-sm font-bold text-slate-100 group-hover:text-cyan-300 transition-colors">
-                IPTV Live Channels Index
-              </h3>
-              <p className="text-[11px] text-slate-400 mt-1 leading-relaxed">
-                Browse thousands of open TV channels (News, Movies, Music, Sports) via global M3U playlists.
-              </p>
-            </div>
-          </div>
-
-          {/* Featured Multi-Audio 1 */}
-          <div
-            onClick={() => {
-              onSelectMedia({
-                id: 'sample-multi-1',
-                title: 'Tears of Steel (Multi-Audio HLS: EN, ES, FR, DE)',
-                src: 'https://demo.unified-streaming.com/k8s/features/stable/video/tears-of-steel/tears-of-steel.ism/.m3u8',
-                type: 'sample',
-                format: 'Multi-Audio HLS',
-                addedAt: Date.now(),
-                thumbnail: 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=600&q=80',
-                description: 'Sci-Fi test video with 4 selectable audio tracks (English, Spanish, French, German).',
-              });
-            }}
-            className="group cursor-pointer bg-gradient-to-br from-slate-900/90 to-purple-950/30 border border-purple-800/40 hover:border-purple-400 p-5 rounded-2xl transition-all shadow-lg flex flex-col justify-between gap-3"
-          >
-            <div className="flex items-center justify-between">
-              <div className="p-2.5 rounded-xl bg-purple-950 text-purple-400 border border-purple-700/50">
-                <Languages className="w-5 h-5" />
-              </div>
-              <span className="px-2 py-0.5 rounded text-[10px] font-mono bg-purple-950 text-purple-300 border border-purple-700/60 font-bold">
-                4 Audio Tracks
-              </span>
-            </div>
-            <div>
-              <h3 className="text-sm font-bold text-slate-100 group-hover:text-purple-300 transition-colors">
-                Tears of Steel (Multi-Audio)
-              </h3>
-              <p className="text-[11px] text-slate-400 mt-1 leading-relaxed">
-                Switch dynamically between English, Spanish, French & German voice tracks.
-              </p>
-            </div>
-          </div>
-
-          {/* Featured Multi-Audio 2 */}
-          <div
-            onClick={() => {
-              onSelectMedia({
-                id: 'sample-multi-2',
-                title: 'Sintel Multi-Audio Stream (EN, DE, FR, ES)',
-                src: 'https://bitdash-a.akamaihd.net/content/sintel/hls/playlist.m3u8',
-                type: 'sample',
-                format: 'Multi-Audio HLS',
-                addedAt: Date.now(),
-                thumbnail: 'https://images.unsplash.com/photo-1514533450685-4493e01d1fdc?auto=format&fit=crop&w=600&q=80',
-                description: 'Fantasy quest film with multi-language HLS audio track selection.',
-              });
-            }}
-            className="group cursor-pointer bg-gradient-to-br from-slate-900/90 to-teal-950/30 border border-teal-800/40 hover:border-teal-400 p-5 rounded-2xl transition-all shadow-lg flex flex-col justify-between gap-3"
-          >
-            <div className="flex items-center justify-between">
-              <div className="p-2.5 rounded-xl bg-teal-950 text-teal-400 border border-teal-700/50">
-                <Volume2 className="w-5 h-5" />
-              </div>
-              <span className="px-2 py-0.5 rounded text-[10px] font-mono bg-teal-950 text-teal-300 border border-teal-700/60 font-bold">
-                Multi-Lang
-              </span>
-            </div>
-            <div>
-              <h3 className="text-sm font-bold text-slate-100 group-hover:text-teal-300 transition-colors">
-                Sintel Fantasy (Multi-Audio)
-              </h3>
-              <p className="text-[11px] text-slate-400 mt-1 leading-relaxed">
-                Test audio track switching with multi-channel sound and language options.
-              </p>
-            </div>
-          </div>
+      {/* Drag & Drop Local File Banner */}
+      {isDragging && (
+        <div className="fixed inset-0 z-50 bg-black/90 backdrop-blur-md border-4 border-dashed border-red-600 flex flex-col items-center justify-center p-8 animate-fade-in text-center">
+          <Upload className="w-16 h-16 text-red-500 animate-bounce mb-4" />
+          <h2 className="text-2xl font-black text-white">Drop Your Video File Here</h2>
+          <p className="text-sm text-neutral-400 max-w-md mt-2">
+            Supports .mp4, .mkv, .webm, .avi, multi-audio MKV streams, .m3u playlists, and audio files.
+          </p>
         </div>
+      )}
 
-        {/* Section: Sample Media Catalog */}
-        <div className="flex flex-col gap-3">
-          <div className="flex items-center justify-between border-b border-slate-800 pb-2">
-            <div className="flex items-center gap-2">
-              <Film className="w-4 h-4 text-cyan-400" />
-              <h2 className="text-xs font-bold uppercase tracking-wider text-slate-300">
-                Sample Media & Test Videos
+      {/* Main Content Rows (Netflix Style Carousels) */}
+      <div className="relative z-20 px-4 sm:px-12 -mt-8 flex flex-col gap-10 pb-20">
+        {/* ROW 1: Continue Watching / Recent History */}
+        {recentMedia.length > 0 && (
+          <div className="flex flex-col gap-3">
+            <div className="flex items-center justify-between">
+              <h2 className="text-base sm:text-lg font-bold text-white flex items-center gap-2">
+                <Clock className="w-4 h-4 text-red-500" />
+                <span>Continue Watching</span>
               </h2>
+              <button
+                onClick={onClearRecents}
+                className="text-xs text-neutral-400 hover:text-red-400 flex items-center gap-1 transition-colors"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>Clear History</span>
+              </button>
             </div>
-            <span className="text-[11px] text-slate-500">1-Click Instant Load</span>
+
+            <div className="flex items-center gap-3 overflow-x-auto pb-4 scrollbar-none">
+              {recentMedia.map((item) => (
+                <div
+                  key={item.id}
+                  onClick={() => onSelectMedia(item)}
+                  className="group relative shrink-0 w-52 sm:w-60 bg-neutral-900 border border-neutral-800 rounded-lg overflow-hidden cursor-pointer transition-all duration-300 hover:scale-105 hover:z-30 hover:border-neutral-600 hover:shadow-2xl"
+                >
+                  {/* Remove Button */}
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onRemoveRecent(item.id);
+                    }}
+                    className="absolute top-2 right-2 p-1.5 rounded-full bg-black/80 text-neutral-400 hover:text-red-500 transition-colors z-20 opacity-0 group-hover:opacity-100"
+                    title="Remove from history"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+
+                  <div className="w-full h-32 bg-neutral-950 relative overflow-hidden">
+                    <img
+                      src={
+                        item.thumbnail ||
+                        'https://images.unsplash.com/photo-1593784991095-a205069470b6?auto=format&fit=crop&w=600&q=80'
+                      }
+                      alt={item.title}
+                      className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300 opacity-90"
+                    />
+                    <div className="absolute inset-0 bg-black/40 group-hover:bg-black/10 transition-colors flex items-center justify-center">
+                      <div className="w-10 h-10 rounded-full bg-red-600/90 text-white flex items-center justify-center shadow-lg transform group-hover:scale-110 transition-transform">
+                        <Play className="w-4 h-4 fill-current ml-0.5" />
+                      </div>
+                    </div>
+
+                    {/* Netflix Bottom Progress Indicator */}
+                    <div className="absolute bottom-0 left-0 right-0 h-1 bg-neutral-800">
+                      <div className="h-full bg-red-600 w-2/3" />
+                    </div>
+                  </div>
+
+                  <div className="p-3 flex flex-col gap-1">
+                    <span className="text-xs font-bold text-neutral-100 truncate group-hover:text-red-400 transition-colors">
+                      {item.title}
+                    </span>
+                    <div className="flex items-center gap-2 text-[10px] text-neutral-400">
+                      <span className="font-mono bg-neutral-950 px-1.5 py-0.5 rounded border border-neutral-800 text-neutral-300 uppercase">
+                        {item.format || 'MEDIA'}
+                      </span>
+                      <span>Resume</span>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* ROW 2: Trending Now on Vortex (Sample Movie Catalog) */}
+        <div className="flex flex-col gap-3">
+          <div className="flex items-center justify-between">
+            <h2 className="text-base sm:text-lg font-bold text-white flex items-center gap-2">
+              <Film className="w-4 h-4 text-red-500" />
+              <span>Trending Now on Vortex</span>
+            </h2>
+            <span className="text-xs text-neutral-500">Sample Catalog</span>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-            {SAMPLE_MEDIA_LIST.map((sample, idx) => (
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4">
+            {filteredSamples.map((sample, idx) => (
               <div
                 key={idx}
                 onClick={() =>
@@ -336,97 +432,152 @@ export const WelcomeLauncher: React.FC<WelcomeLauncherProps> = ({
                     description: sample.description,
                   })
                 }
-                className="group bg-slate-900/70 hover:bg-slate-800 border border-slate-800 hover:border-cyan-500/50 rounded-xl p-3 flex items-center gap-3 cursor-pointer transition-all shadow-md"
+                className="group relative bg-neutral-900 border border-neutral-800 rounded-lg overflow-hidden cursor-pointer transition-all duration-300 hover:scale-105 hover:z-30 hover:border-neutral-600 hover:shadow-2xl flex flex-col"
               >
-                <img
-                  src={sample.thumbnail}
-                  alt={sample.title}
-                  className="w-14 h-14 rounded-lg object-cover bg-slate-950 shrink-0 border border-slate-700/60"
-                />
-                <div className="flex flex-col overflow-hidden flex-1">
-                  <span className="text-xs font-bold text-slate-100 group-hover:text-cyan-400 transition-colors truncate">
-                    {sample.title}
-                  </span>
-                  <p className="text-[10px] text-slate-400 line-clamp-1 mt-0.5">{sample.description}</p>
-                  <div className="flex items-center gap-2 mt-1">
-                    <span className="px-1.5 py-0.2 rounded text-[9px] font-mono bg-slate-950 text-cyan-300 border border-slate-700 font-semibold">
+                {/* Poster Thumbnail */}
+                <div className="w-full h-40 sm:h-48 bg-neutral-950 relative overflow-hidden">
+                  <img
+                    src={sample.thumbnail}
+                    alt={sample.title}
+                    className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-neutral-950 via-transparent to-transparent opacity-80" />
+
+                  {/* Play Overlay */}
+                  <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                    <div className="w-10 h-10 rounded-full bg-red-600 text-white flex items-center justify-center shadow-lg transform group-hover:scale-110 transition-transform">
+                      <Play className="w-4 h-4 fill-current ml-0.5" />
+                    </div>
+                  </div>
+
+                  {/* Multi-Audio Badge */}
+                  {sample.title.toLowerCase().includes('multi-audio') && (
+                    <span className="absolute top-2 left-2 px-1.5 py-0.5 rounded text-[9px] font-bold bg-red-600 text-white shadow-md">
+                      DUAL AUDIO
+                    </span>
+                  )}
+                </div>
+
+                {/* Info */}
+                <div className="p-3 flex flex-col gap-1.5 bg-neutral-900 flex-1 justify-between">
+                  <div>
+                    <h3 className="text-xs font-bold text-neutral-100 group-hover:text-red-400 transition-colors line-clamp-1">
+                      {sample.title}
+                    </h3>
+                    <p className="text-[10px] text-neutral-400 line-clamp-2 mt-0.5 leading-relaxed">
+                      {sample.description}
+                    </p>
+                  </div>
+
+                  <div className="flex items-center gap-2 pt-1 border-t border-neutral-800/80">
+                    <span className="px-1.5 py-0.5 rounded text-[9px] font-mono bg-neutral-950 text-neutral-300 border border-neutral-800 font-semibold">
                       {sample.format}
                     </span>
-                    {sample.title.toLowerCase().includes('multi-audio') && (
-                      <span className="px-1.5 py-0.2 rounded text-[9px] font-mono bg-purple-950 text-purple-300 font-semibold">
-                        Multi-Audio
-                      </span>
-                    )}
+                    <span className="text-[10px] text-emerald-400 font-bold ml-auto">98% Match</span>
                   </div>
-                </div>
-                <div className="p-2 rounded-lg bg-cyan-500/20 group-hover:bg-cyan-500 text-cyan-400 group-hover:text-slate-950 transition-all shrink-0">
-                  <Play className="w-3.5 h-3.5 fill-current" />
                 </div>
               </div>
             ))}
           </div>
         </div>
 
-        {/* Section: Recent History */}
-        {recentMedia.length > 0 && (
-          <div className="flex flex-col gap-3">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-2">
-              <div className="flex items-center gap-2">
-                <Clock className="w-4 h-4 text-purple-400" />
-                <h2 className="text-xs font-bold uppercase tracking-wider text-slate-300">Recently Opened</h2>
+        {/* ROW 3: IPTV Live TV & Global Channels */}
+        <div className="bg-neutral-900/60 border border-neutral-800 rounded-2xl p-6 flex flex-col sm:flex-row items-center justify-between gap-6 shadow-xl">
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 rounded-2xl bg-red-950/80 text-red-500 border border-red-800/50 flex items-center justify-center shrink-0">
+              <Tv className="w-6 h-6" />
+            </div>
+            <div>
+              <h3 className="text-base font-bold text-white">Live IPTV Channel Explorer</h3>
+              <p className="text-xs text-neutral-400 mt-0.5">
+                Stream 10,000+ open global TV channels (Sports, News, Movies, Music) via M3U playlist indexing.
+              </p>
+            </div>
+          </div>
+
+          <button
+            onClick={() => onOpenIPTV('https://iptv-org.github.io/iptv/index.m3u')}
+            className="px-6 py-3 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold text-xs flex items-center gap-2 shrink-0 shadow-lg transition-all active:scale-95"
+          >
+            <Tv className="w-4 h-4" />
+            <span>Launch IPTV Guide</span>
+            <ChevronRight className="w-4 h-4" />
+          </button>
+        </div>
+      </div>
+
+      {/* Stream URL Modal */}
+      {showUrlModal && (
+        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4 animate-fade-in">
+          <div className="bg-neutral-900 border border-neutral-800 rounded-2xl w-full max-w-lg p-6 shadow-2xl text-neutral-100 flex flex-col gap-4">
+            <div className="flex items-center justify-between border-b border-neutral-800 pb-3">
+              <div className="flex items-center gap-2 text-white font-bold text-sm">
+                <LinkIcon className="w-4 h-4 text-red-500" />
+                <span>Open Stream or M3U Playlist URL</span>
               </div>
               <button
-                onClick={onClearRecents}
-                className="text-[11px] text-slate-500 hover:text-rose-400 flex items-center gap-1 transition-colors"
+                onClick={() => setShowUrlModal(false)}
+                className="text-neutral-400 hover:text-white p-1"
               >
-                <Trash2 className="w-3.5 h-3.5" />
-                <span>Clear Recents</span>
+                ✕
               </button>
             </div>
 
-            <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none">
-              {recentMedia.slice(0, 8).map((item) => (
-                <div
-                  key={item.id}
-                  onClick={() => onSelectMedia(item)}
-                  className="group shrink-0 w-44 bg-slate-900 border border-slate-800 hover:border-cyan-500/60 rounded-xl p-2.5 flex flex-col gap-2 cursor-pointer transition-all shadow-md relative"
+            <form onSubmit={handleStreamSubmit} className="flex flex-col gap-3">
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-semibold text-neutral-300">Stream or Playlist Link</label>
+                <input
+                  type="url"
+                  required
+                  placeholder="https://example.com/stream.m3u8 or .mp4"
+                  value={streamUrl}
+                  onChange={(e) => setStreamUrl(e.target.value)}
+                  className="bg-neutral-950 border border-neutral-800 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-neutral-500 focus:outline-none focus:border-red-600 font-mono"
+                />
+              </div>
+
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-semibold text-neutral-300">Stream Title (Optional)</label>
+                <input
+                  type="text"
+                  placeholder="e.g. My Favorite Movie"
+                  value={streamTitle}
+                  onChange={(e) => setStreamTitle(e.target.value)}
+                  className="bg-neutral-950 border border-neutral-800 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-neutral-500 focus:outline-none focus:border-red-600"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowUrlModal(false)}
+                  className="px-4 py-2 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-xs text-neutral-300 font-semibold"
                 >
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onRemoveRecent(item.id);
-                    }}
-                    className="absolute top-1.5 right-1.5 p-1 rounded-md bg-slate-950/80 text-slate-400 hover:text-rose-400 transition-colors z-10"
-                    title="Remove from recents"
-                  >
-                    <Trash2 className="w-3 h-3" />
-                  </button>
-
-                  <div className="w-full h-20 rounded-lg bg-slate-950 overflow-hidden relative">
-                    <img
-                      src={
-                        item.thumbnail ||
-                        'https://images.unsplash.com/photo-1593784991095-a205069470b6?auto=format&fit=crop&w=600&q=80'
-                      }
-                      alt={item.title}
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                    />
-                    <div className="absolute inset-0 bg-slate-950/40 group-hover:bg-slate-950/10 transition-colors flex items-center justify-center">
-                      <div className="p-2 rounded-full bg-cyan-500/90 text-slate-950 shadow-md transform group-hover:scale-110 transition-transform">
-                        <Play className="w-3.5 h-3.5 fill-current" />
-                      </div>
-                    </div>
-                  </div>
-
-                  <span className="text-xs font-semibold text-slate-200 truncate group-hover:text-cyan-400 transition-colors">
-                    {item.title}
-                  </span>
-                </div>
-              ))}
-            </div>
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-md"
+                >
+                  <Play className="w-3.5 h-3.5 fill-current" />
+                  <span>Play Stream</span>
+                </button>
+              </div>
+            </form>
           </div>
-        )}
-      </div>
+        </div>
+      )}
+
+      {/* Footer */}
+      <footer className="border-t border-neutral-900 bg-black/90 px-4 sm:px-12 py-8 text-xs text-neutral-500 flex flex-col sm:flex-row items-center justify-between gap-4 z-20 relative">
+        <div className="flex items-center gap-2">
+          <ShieldCheck className="w-4 h-4 text-red-500" />
+          <span>Vortex Player • Netflix Redesign</span>
+        </div>
+        <div>
+          Designed & Built with ❤️ by <strong className="text-neutral-300 font-bold">Suhail Akhtar</strong>
+        </div>
+      </footer>
     </div>
   );
 };

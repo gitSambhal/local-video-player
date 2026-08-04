@@ -42,83 +42,66 @@ export const AudioEqModal: React.FC<AudioEqModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 animate-fade-in">
-      <div className="bg-slate-900 border border-slate-700/80 rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto p-6 shadow-2xl text-slate-100 flex flex-col gap-6">
+    <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 animate-fade-in">
+      <div className="bg-neutral-900 border border-neutral-800 rounded-2xl w-full max-w-xl max-h-[90vh] overflow-y-auto p-6 shadow-2xl text-neutral-100 flex flex-col gap-6">
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-slate-800 pb-4">
-          <div className="flex items-center gap-2.5 text-cyan-400 font-semibold text-lg">
-            <Volume2 className="w-5 h-5" />
-            <span>Audio Boost & Multi-Track Manager</span>
+        <div className="flex items-center justify-between border-b border-neutral-800 pb-4">
+          <div className="flex items-center gap-2.5 text-white font-bold text-lg">
+            <Volume2 className="w-5 h-5 text-red-500" />
+            <span>Audio & Equalizer</span>
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white transition-colors"
+            className="p-1.5 rounded-lg bg-neutral-800 hover:bg-neutral-700 text-neutral-400 hover:text-white transition-colors"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        {/* Multi-Audio Track Language Selector */}
-        {(() => {
-          const tracksToDisplay: AudioTrackInfo[] =
-            availableAudioTracks.length > 0
-              ? availableAudioTracks
-              : [
-                  { id: 0, name: 'English (Original Master)', lang: 'en', default: true },
-                  { id: 1, name: 'Spanish Dub (Español)', lang: 'es' },
-                  { id: 2, name: 'French Dub (Français)', lang: 'fr' },
-                  { id: 3, name: 'German Dub (Deutsch)', lang: 'de' },
-                ];
-
-          return (
-            <div className="bg-gradient-to-r from-purple-950/60 to-slate-900 border border-purple-500/40 rounded-xl p-4 flex flex-col gap-3">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2 text-purple-300 font-bold text-sm">
-                  <Languages className="w-4 h-4 text-purple-400" />
-                  <span>
-                    Audio Track & Voice Language ({tracksToDisplay.length} Available)
-                  </span>
-                </div>
-                <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-purple-900/80 text-purple-200 border border-purple-600/50">
-                  {availableAudioTracks.length > 0 ? 'Detected Multi-Audio' : 'Multi-Audio Selector'}
-                </span>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                {tracksToDisplay.map((track) => {
-                  const isSelected = (audioSettings.activeAudioTrackId ?? 0) === track.id;
-                  return (
-                    <button
-                      key={track.id}
-                      onClick={() =>
-                        onUpdateAudioSettings({
-                          ...audioSettings,
-                          activeAudioTrackId: track.id,
-                        })
-                      }
-                      className={`flex items-center justify-between p-2.5 rounded-lg text-xs font-semibold border transition-all ${
-                        isSelected
-                          ? 'bg-purple-600 text-slate-950 border-purple-400 shadow-md font-bold'
-                          : 'bg-slate-950/80 hover:bg-slate-800 text-slate-200 border-slate-800'
-                      }`}
-                    >
-                      <div className="flex items-center gap-2 truncate">
-                        <Volume2 className="w-3.5 h-3.5 shrink-0 text-purple-300" />
-                        <span className="capitalize truncate">{track.name || `Track ${track.id + 1}`}</span>
-                        {track.lang && (
-                          <span className="text-[9px] font-mono opacity-80 uppercase px-1 rounded bg-black/30 shrink-0">
-                            {track.lang}
-                          </span>
-                        )}
-                      </div>
-                      {isSelected && <Check className="w-4 h-4 stroke-[3] shrink-0 ml-1" />}
-                    </button>
-                  );
-                })}
+        {/* Multi-Audio Track Selector - ONLY rendered if dubbed/multiple audio streams are present */}
+        {availableAudioTracks.length > 1 && (
+          <div className="bg-neutral-950/80 border border-neutral-800 rounded-xl p-4 flex flex-col gap-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 text-white font-bold text-sm">
+                <Languages className="w-4 h-4 text-red-500" />
+                <span>Audio Language Tracks ({availableAudioTracks.length})</span>
               </div>
             </div>
-          );
-        })()}
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              {availableAudioTracks.map((track) => {
+                const isSelected = (audioSettings.activeAudioTrackId ?? 0) === track.id;
+                return (
+                  <button
+                    key={track.id}
+                    onClick={() =>
+                      onUpdateAudioSettings({
+                        ...audioSettings,
+                        activeAudioTrackId: track.id,
+                      })
+                    }
+                    className={`flex items-center justify-between p-2.5 rounded-xl text-xs font-semibold border transition-all ${
+                      isSelected
+                        ? 'bg-neutral-800 text-white border-neutral-600 shadow-md'
+                        : 'bg-neutral-900/80 hover:bg-neutral-800/60 text-neutral-300 border-neutral-800'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2 truncate">
+                      <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${isSelected ? 'bg-red-600' : 'bg-neutral-600'}`} />
+                      <span className="capitalize truncate">{track.name || `Track ${track.id + 1}`}</span>
+                      {track.lang && (
+                        <span className="text-[9px] font-mono opacity-80 uppercase px-1.5 py-0.5 rounded bg-neutral-950 text-neutral-400 shrink-0 border border-neutral-800">
+                          {track.lang}
+                        </span>
+                      )}
+                    </div>
+                    {isSelected && <Check className="w-4 h-4 text-red-500 stroke-[2.5] shrink-0 ml-1" />}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         {/* Volume Boost Section */}
         <div className="bg-slate-950/60 border border-slate-800 rounded-xl p-4 flex flex-col gap-3">

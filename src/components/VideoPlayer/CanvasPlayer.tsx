@@ -11,7 +11,7 @@ import {
   AudioTrackInfo,
 } from '../../types';
 import { audioEngine } from '../../utils/audioEngine';
-import { Play, Pause, Sun, Volume2, FastForward, Rewind, ZoomIn, Radio, AlertTriangle, RefreshCw, ShieldAlert } from 'lucide-react';
+import { Play, Pause, Sun, Volume2, FastForward, Rewind, ZoomIn, Radio, AlertTriangle, RefreshCw, ShieldAlert, Home, ArrowLeft } from 'lucide-react';
 
 interface CanvasPlayerProps {
   media: MediaItem | null;
@@ -32,6 +32,7 @@ interface CanvasPlayerProps {
   containerRef: React.RefObject<HTMLDivElement | null>;
   onRegisterSnapshotFn?: (fn: () => string | null) => void;
   onOpenLibrary?: () => void;
+  onReturnHome?: () => void;
   onAudioTracksUpdate?: (tracks: AudioTrackInfo[], currentTrackId: number) => void;
 }
 
@@ -54,15 +55,16 @@ export const CanvasPlayer: React.FC<CanvasPlayerProps> = ({
   containerRef,
   onRegisterSnapshotFn,
   onOpenLibrary,
+  onReturnHome,
   onAudioTracksUpdate,
 }) => {
   const hlsRef = useRef<Hls | null>(null);
   const [gestureState, setGestureState] = useState<GestureState | null>(null);
   const gestureTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Stream state & CORS Proxy fallback
+  // Stream state & CORS Proxy fallbacks
   const [streamError, setStreamError] = useState<string | null>(null);
-  const [useProxy, setUseProxy] = useState<boolean>(false);
+  const [proxyIndex, setProxyIndex] = useState<number>(0); // 0: Direct, 1: corsproxy.io, 2: allorigins.win, 3: thingproxy
 
   // Ripple effect states
   const [ripples, setRipples] = useState<{ id: number; x: number; y: number; text: string }[]>([]);
@@ -79,11 +81,20 @@ export const CanvasPlayer: React.FC<CanvasPlayerProps> = ({
   const lastClickTimeRef = useRef<number>(0);
   const clickTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Reset error & proxy when media source changes
+  // Reset error & proxy mode when media source changes
   useEffect(() => {
     setStreamError(null);
-    setUseProxy(false);
+    setProxyIndex(0);
   }, [media?.src]);
+
+  // Compute proxied stream URL
+  const getProxiedUrl = (url: string, index: number) => {
+    if (!url) return '';
+    if (index === 1) return `https://corsproxy.io/?${encodeURIComponent(url)}`;
+    if (index === 2) return `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`;
+    if (index === 3) return `https://thingproxy.freeboard.io/fetch/${url}`;
+    return url;
+  };
 
   // Initialize HLS or HTML5 Video
   useEffect(() => {
@@ -103,7 +114,46 @@ export const CanvasPlayer: React.FC<CanvasPlayerProps> = ({
       media.format?.toLowerCase().includes('hls') ||
       !!media.isLive;
 
-    const sourceUrl = useProxy ? `https://corsproxy.io/?${encodeURIComponent(media.src)}` : media.src;
+    const sourceUrl = getProxiedUrl(media.src, proxyIndex);
+
+    const syncAudioTracks = () => {
+      if (!onAudioTracksUpdate) return;
+
+      if (media?.detectedAudioTracks && media.detectedAudioTracks.length > 0) {
+        onAudioTracksUpdate(media.detectedAudioTracks, audioSettings.activeAudioTrackId ?? 0);
+        return;
+      }
+
+      let tracks: AudioTrackInfo[] = [];
+
+      if (hlsRef.current && hlsRef.current.audioTracks && hlsRef.current.audioTracks.length > 0) {
+        tracks = hlsRef.current.audioTracks.map((t: any, idx: number) => ({
+          id: idx,
+          name: t.name || t.lang || `Audio Track ${idx + 1}`,
+          lang: t.lang || t.name || '',
+          groupId: t.groupId,
+          default: t.default,
+        }));
+        onAudioTracksUpdate(tracks, hlsRef.current.audioTrack >= 0 ? hlsRef.current.audioTrack : 0);
+        return;
+      }
+
+      const nativeAudioTracks = (videoNode as any).audioTracks;
+      if (nativeAudioTracks && nativeAudioTracks.length > 0) {
+        tracks = Array.from(nativeAudioTracks).map((t: any, idx: number) => ({
+          id: idx,
+          name: t.label || t.language || `Audio Track ${idx + 1}`,
+          lang: t.language || '',
+          default: t.enabled,
+        }));
+        const activeIdx = Array.from(nativeAudioTracks).findIndex((t: any) => t.enabled);
+        onAudioTracksUpdate(tracks, activeIdx >= 0 ? activeIdx : 0);
+        return;
+      }
+
+      // If no multi-stream manifests found, send empty array so UI provides Channel Modes
+      onAudioTracksUpdate([], audioSettings.activeAudioTrackId ?? 0);
+    };
 
     if (isHls && Hls.isSupported()) {
       const hls = new Hls({
@@ -116,48 +166,6 @@ export const CanvasPlayer: React.FC<CanvasPlayerProps> = ({
       hls.loadSource(sourceUrl);
       hls.attachMedia(videoNode);
       hlsRef.current = hls;
-
-      const syncAudioTracks = () => {
-        if (!onAudioTracksUpdate) return;
-        let tracks: AudioTrackInfo[] = [];
-
-        if (hlsRef.current && hlsRef.current.audioTracks && hlsRef.current.audioTracks.length > 0) {
-          tracks = hlsRef.current.audioTracks.map((t: any, idx: number) => ({
-            id: idx,
-            name: t.name || t.lang || `Audio Track ${idx + 1}`,
-            lang: t.lang || t.name || '',
-            groupId: t.groupId,
-            default: t.default,
-          }));
-          onAudioTracksUpdate(tracks, hlsRef.current.audioTrack >= 0 ? hlsRef.current.audioTrack : 0);
-          return;
-        }
-
-        const nativeAudioTracks = (videoNode as any).audioTracks;
-        if (nativeAudioTracks && nativeAudioTracks.length > 0) {
-          tracks = Array.from(nativeAudioTracks).map((t: any, idx: number) => ({
-            id: idx,
-            name: t.label || t.language || `Audio Track ${idx + 1}`,
-            lang: t.language || '',
-            default: t.enabled,
-          }));
-          const activeIdx = Array.from(nativeAudioTracks).findIndex((t: any) => t.enabled);
-          onAudioTracksUpdate(tracks, activeIdx >= 0 ? activeIdx : 0);
-          return;
-        }
-
-        // Fallback for multi-audio featured items (Tears of Steel / Sintel)
-        const titleLower = media.title.toLowerCase();
-        if (titleLower.includes('tears of steel') || titleLower.includes('multi-audio') || titleLower.includes('sintel')) {
-          tracks = [
-            { id: 0, name: 'English Track (Default Master)', lang: 'en', default: true },
-            { id: 1, name: 'Spanish Voice Track (Español)', lang: 'es' },
-            { id: 2, name: 'French Audio Track (Français)', lang: 'fr' },
-            { id: 3, name: 'German Audio Track (Deutsch)', lang: 'de' },
-          ];
-          onAudioTracksUpdate(tracks, audioSettings.activeAudioTrackId ?? 0);
-        }
-      };
 
       hls.on(Hls.Events.MANIFEST_PARSED, () => {
         setStreamError(null);
@@ -188,11 +196,14 @@ export const CanvasPlayer: React.FC<CanvasPlayerProps> = ({
           switch (data.type) {
             case Hls.ErrorTypes.NETWORK_ERROR:
               console.warn('HLS Network Error, trying recovery...', data);
-              if (!useProxy) {
-                console.log('Switching to CORS Proxy for stream:', media.src);
-                setUseProxy(true);
+              if (proxyIndex === 0) {
+                console.log('Auto-trying CORS Proxy 1 for stream:', media.src);
+                setProxyIndex(1);
+              } else if (proxyIndex === 1) {
+                console.log('Auto-trying CORS Proxy 2 for stream:', media.src);
+                setProxyIndex(2);
               } else {
-                setStreamError('Network Error: Stream URL could not be loaded or server is offline.');
+                setStreamError('Network / CORS Error: Stream URL could not be loaded or source server is offline.');
               }
               break;
             case Hls.ErrorTypes.MEDIA_ERROR:
@@ -212,6 +223,7 @@ export const CanvasPlayer: React.FC<CanvasPlayerProps> = ({
       if (isPlaying) {
         videoNode.play().catch(() => {});
       }
+      syncAudioTracks();
     }
 
     // Attach Web Audio engine for >100% boost and Equalizer
@@ -219,6 +231,7 @@ export const CanvasPlayer: React.FC<CanvasPlayerProps> = ({
       audioEngine.init(videoNode);
       audioEngine.resume();
       audioEngine.setGain(audioSettings.gain);
+      audioEngine.setAudioTrackMode(audioSettings.activeAudioTrackId ?? 0);
       if (audioSettings.eqEnabled) {
         audioEngine.setEqBands(audioSettings.eqBands);
       }
@@ -237,7 +250,7 @@ export const CanvasPlayer: React.FC<CanvasPlayerProps> = ({
         hlsRef.current = null;
       }
     };
-  }, [media?.src, useProxy]);
+  }, [media?.src, proxyIndex]);
 
   // Sync play state
   useEffect(() => {
@@ -257,14 +270,31 @@ export const CanvasPlayer: React.FC<CanvasPlayerProps> = ({
     const trackId = audioSettings.activeAudioTrackId;
     if (trackId === undefined || trackId < 0) return;
 
-    // 1. Sync HLS audio track if available in stream manifest
+    // 1. Reload backend MKV FFmpeg stream if playing local uploaded MKV
+    if (media?.mkvFileId && videoRef.current) {
+      const video = videoRef.current;
+      const currentPos = video.currentTime || 0;
+      const currentSrc = video.src || '';
+      const targetParam = `audioTrack=${trackId}`;
+
+      if (!currentSrc.includes(targetParam)) {
+        const newSrc = `/api/mkv/stream/${media.mkvFileId}?audioTrack=${trackId}&t=${Math.floor(currentPos)}`;
+        video.src = newSrc;
+        video.load();
+        if (isPlaying) {
+          video.play().catch(() => {});
+        }
+      }
+    }
+
+    // 2. Sync HLS audio track if available in stream manifest
     if (hlsRef.current && hlsRef.current.audioTracks && hlsRef.current.audioTracks.length > trackId) {
       if (hlsRef.current.audioTrack !== trackId) {
         hlsRef.current.audioTrack = trackId;
       }
     }
 
-    // 2. Sync Native HTML5 video element audio tracks if available
+    // 3. Sync Native HTML5 video element audio tracks if available
     if (videoRef.current) {
       const nativeTracks = (videoRef.current as any).audioTracks;
       if (nativeTracks && nativeTracks.length > trackId) {
@@ -274,9 +304,9 @@ export const CanvasPlayer: React.FC<CanvasPlayerProps> = ({
       }
     }
 
-    // 3. Apply real-time Web Audio Engine acoustic frequency profile
+    // 4. Apply real-time Web Audio Engine acoustic frequency profile
     audioEngine.setAudioTrackMode(trackId);
-  }, [audioSettings.activeAudioTrackId]);
+  }, [audioSettings.activeAudioTrackId, media?.mkvFileId]);
 
   // Sync playback speed
   useEffect(() => {
@@ -490,6 +520,11 @@ export const CanvasPlayer: React.FC<CanvasPlayerProps> = ({
         }}
         onPlay={() => audioEngine.resume()}
         onEnded={onEnded}
+        onError={() => {
+          if (!streamError) {
+            setStreamError('Playback Error: The video format or stream URL could not be loaded.');
+          }
+        }}
         playsInline
         className="w-full h-full transition-all duration-150"
         style={{
@@ -569,31 +604,44 @@ export const CanvasPlayer: React.FC<CanvasPlayerProps> = ({
 
       {/* Stream Error & CORS Proxy Retry Overlay */}
       {streamError && (
-        <div className="absolute z-30 inset-0 bg-slate-950/90 backdrop-blur-md flex flex-col items-center justify-center p-6 text-center animate-fade-in">
-          <div className="max-w-md bg-slate-900 border border-slate-700 p-6 rounded-2xl shadow-2xl flex flex-col items-center gap-4">
-            <div className="w-12 h-12 rounded-full bg-rose-950/80 text-rose-400 border border-rose-800/80 flex items-center justify-center">
+        <div className="absolute z-30 inset-0 bg-neutral-950/95 backdrop-blur-md flex flex-col items-center justify-center p-6 text-center animate-fade-in font-sans">
+          <div className="max-w-md bg-neutral-900 border border-neutral-800 p-6 rounded-2xl shadow-2xl flex flex-col items-center gap-4 text-neutral-100">
+            <div className="w-12 h-12 rounded-full bg-red-950/80 text-red-400 border border-red-800/80 flex items-center justify-center">
               <AlertTriangle className="w-6 h-6 animate-pulse" />
             </div>
             <div className="flex flex-col gap-1">
-              <h3 className="text-base font-bold text-slate-100">Live Stream Playback Issue</h3>
-              <p className="text-xs text-slate-400">{streamError}</p>
+              <h3 className="text-base font-bold text-neutral-100">Live Stream / Video Error</h3>
+              <p className="text-xs text-neutral-400 leading-relaxed">{streamError}</p>
+              <div className="text-[11px] text-neutral-500 mt-1">
+                Current mode: {proxyIndex === 0 ? 'Direct Stream' : `CORS Proxy ${proxyIndex}`}
+              </div>
             </div>
 
-            <div className="flex items-center gap-2 flex-wrap justify-center mt-2">
+            <div className="flex items-center gap-2 flex-wrap justify-center mt-2 w-full">
+              {onReturnHome && (
+                <button
+                  onClick={onReturnHome}
+                  className="px-4 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-lg shadow-red-950/50 transition-all transform active:scale-95"
+                >
+                  <Home className="w-4 h-4" />
+                  <span>Go Back Home</span>
+                </button>
+              )}
+
               <button
-                onClick={() => setUseProxy(!useProxy)}
-                className="px-4 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-slate-950 font-bold text-xs flex items-center gap-1.5 shadow-md transition-all"
+                onClick={() => setProxyIndex((prev) => (prev + 1) % 4)}
+                className="px-4 py-2.5 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-neutral-200 font-semibold text-xs flex items-center justify-center gap-1.5 transition-all border border-neutral-700"
               >
-                <RefreshCw className="w-4 h-4" />
-                <span>{useProxy ? 'Retry Direct Connection' : 'Try CORS Proxy Connection'}</span>
+                <RefreshCw className="w-3.5 h-3.5 text-red-500" />
+                <span>Switch Proxy (Mode {(proxyIndex + 1) % 4})</span>
               </button>
 
               {onOpenLibrary && (
                 <button
                   onClick={onOpenLibrary}
-                  className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold text-xs transition-all border border-slate-700"
+                  className="px-4 py-2.5 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-neutral-300 hover:text-white font-semibold text-xs transition-all border border-neutral-700"
                 >
-                  Open Channels Library
+                  More Channels
                 </button>
               )}
             </div>

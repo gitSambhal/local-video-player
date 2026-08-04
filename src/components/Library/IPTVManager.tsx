@@ -21,6 +21,11 @@ const PRESET_PLAYLISTS = [
     desc: '24/7 global live news streams in English & international languages.',
   },
   {
+    name: 'IPTV-Org Sports',
+    url: 'https://iptv-org.github.io/iptv/categories/sports.m3u',
+    desc: 'Live sports broadcasts, racing, outdoor sports, and events.',
+  },
+  {
     name: 'IPTV-Org Music',
     url: 'https://iptv-org.github.io/iptv/categories/music.m3u',
     desc: 'Live music video channels, concerts, and radio broadcasts.',
@@ -31,9 +36,39 @@ const PRESET_PLAYLISTS = [
     desc: 'Classic cinema, independent films, and entertainment channels.',
   },
   {
+    name: 'IPTV-Org Entertainment',
+    url: 'https://iptv-org.github.io/iptv/categories/entertainment.m3u',
+    desc: 'General entertainment, lifestyle, reality TV, and variety shows.',
+  },
+  {
+    name: 'IPTV-Org Documentary',
+    url: 'https://iptv-org.github.io/iptv/categories/documentary.m3u',
+    desc: 'Science, history, nature, space, and wildlife channels.',
+  },
+  {
     name: 'IPTV-Org Animation & Kids',
     url: 'https://iptv-org.github.io/iptv/categories/animation.m3u',
     desc: 'Animated cartoons, anime, and family entertainment.',
+  },
+  {
+    name: 'IPTV-Org English TV',
+    url: 'https://iptv-org.github.io/iptv/languages/eng.m3u',
+    desc: 'All open English language channels from around the world.',
+  },
+  {
+    name: 'IPTV-Org United States',
+    url: 'https://iptv-org.github.io/iptv/countries/us.m3u',
+    desc: 'Open United States TV & local broadcast channels.',
+  },
+  {
+    name: 'IPTV-Org United Kingdom',
+    url: 'https://iptv-org.github.io/iptv/countries/uk.m3u',
+    desc: 'United Kingdom TV & news channels.',
+  },
+  {
+    name: 'IPTV-Org India',
+    url: 'https://iptv-org.github.io/iptv/countries/in.m3u',
+    desc: 'India TV, news, regional & entertainment broadcasts.',
   },
 ];
 

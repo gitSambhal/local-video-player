@@ -27,6 +27,7 @@ import {
 } from './utils/storage';
 import { p2pSync } from './utils/p2pSync';
 import { audioEngine, EQ_PRESETS } from './utils/audioEngine';
+import { uploadAndInspectMkv } from './utils/mkvUploader';
 
 import { CanvasPlayer } from './components/VideoPlayer/CanvasPlayer';
 import { PlayerTopBar } from './components/VideoPlayer/PlayerTopBar';
@@ -59,6 +60,7 @@ export default function App() {
   const [audioSettings, setAudioSettings] = useState<AudioSettings>(DEFAULT_AUDIO_SETTINGS);
   const [subtitleSettings, setSubtitleSettings] = useState<SubtitleSettings>(getSubtitleSettings());
   const [availableAudioTracks, setAvailableAudioTracks] = useState<AudioTrackInfo[]>([]);
+  const [mkvAnalysisStatus, setMkvAnalysisStatus] = useState<string | null>(null);
 
   // Subtitles & Bookmarks
   const [subtitleTracks, setSubtitleTracks] = useState<SubtitleTrack[]>([]);
@@ -95,14 +97,56 @@ export default function App() {
     setBookmarks(getBookmarks());
   }, []);
 
-  // Save selected media to recents
-  const handleSelectMedia = (media: MediaItem) => {
+  // Save selected media to recents & inspect local file for multi-audio tracks
+  const handleSelectMedia = async (media: MediaItem, rawFile?: File) => {
     setCurrentMedia(media);
     saveRecentMedia(media);
     setRecentMedia(getRecentMedia());
     setIsPlaying(true);
     if (media.isAudioOnly) {
       setIsMusicMode(true);
+    }
+
+    const targetFile = rawFile || (media as any).fileObj;
+    if (targetFile && targetFile instanceof File) {
+      const ext = targetFile.name.split('.').pop()?.toLowerCase();
+      if (ext === 'mkv' || ext === 'mp4' || ext === 'avi' || ext === 'webm') {
+        setMkvAnalysisStatus('Preparing audio streams & multi-language track engine...');
+      }
+
+      try {
+        const res = await uploadAndInspectMkv(targetFile, (percent) => {
+          setMkvAnalysisStatus(`Processing video audio streams (${percent}%)...`);
+        });
+
+        if (res && res.audioTracks && res.audioTracks.length > 0) {
+          setAvailableAudioTracks(res.audioTracks);
+          const updatedMedia: MediaItem = {
+            ...media,
+            mkvFileId: res.fileId,
+            mkvStreamUrl: res.streamUrl,
+            detectedAudioTracks: res.audioTracks,
+          };
+          setCurrentMedia(updatedMedia);
+          if (res.audioTracks.length > 1) {
+            setMkvAnalysisStatus(`Found ${res.audioTracks.length} Audio Tracks (${res.audioTracks.map((t) => t.name).join(', ')}). Switch audio anytime in the top dropdown!`);
+            setTimeout(() => setMkvAnalysisStatus(null), 5000);
+          } else {
+            setMkvAnalysisStatus(null);
+          }
+        } else {
+          setMkvAnalysisStatus(null);
+        }
+      } catch (err) {
+        console.warn('MKV multi-audio inspection error:', err);
+        setMkvAnalysisStatus(null);
+      }
+    } else if (media.detectedAudioTracks && media.detectedAudioTracks.length > 0) {
+      setAvailableAudioTracks(media.detectedAudioTracks);
+      setMkvAnalysisStatus(null);
+    } else {
+      setAvailableAudioTracks([]);
+      setMkvAnalysisStatus(null);
     }
   };
 
@@ -367,7 +411,7 @@ export default function App() {
       className="relative w-screen h-screen bg-slate-950 text-slate-100 flex flex-col font-sans overflow-hidden select-none"
     >
       {/* Top Bar HUD */}
-      <div className={`transition-opacity duration-300 ${showHud ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
+      <div className={`transition-opacity duration-300 ${showHud ? 'opacity-100' : 'opacity-0 pointer-events-none'} z-40 relative`}>
         <PlayerTopBar
           media={currentMedia}
           isFullscreen={!!document.fullscreenElement}
@@ -395,11 +439,22 @@ export default function App() {
           onToggleFullscreen={toggleFullscreen}
           availableAudioTracks={availableAudioTracks}
           activeAudioTrackId={audioSettings.activeAudioTrackId}
+          onSelectAudioTrack={(trackId) =>
+            setAudioSettings((prev) => ({ ...prev, activeAudioTrackId: trackId }))
+          }
         />
       </div>
 
       {/* Main Canvas View (Video Player AND Music Visualizer Overlay) */}
       <div className="relative flex-1 w-full h-full">
+        {/* MKV Stream Analysis Toast Pill */}
+        {mkvAnalysisStatus && (
+          <div className="absolute top-4 left-1/2 -translate-x-1/2 z-40 bg-purple-950/90 backdrop-blur-md border border-purple-500/50 text-purple-200 px-4 py-2 rounded-full shadow-2xl text-xs font-medium flex items-center gap-2 animate-bounce">
+            <span className="w-2 h-2 rounded-full bg-purple-400 animate-ping" />
+            <span>{mkvAnalysisStatus}</span>
+          </div>
+        )}
+
         {/* CanvasPlayer stays rendered in DOM so HTML5 video/audio node is never unmounted */}
         <div className={`w-full h-full ${isMusicMode ? 'opacity-0 pointer-events-none absolute inset-0' : 'block'}`}>
           <CanvasPlayer
@@ -441,6 +496,10 @@ export default function App() {
               snapshotFnRef.current = fn;
             }}
             onOpenLibrary={() => setIsLibraryOpen(true)}
+            onReturnHome={() => {
+              setIsPlaying(false);
+              setCurrentMedia(null);
+            }}
             onAudioTracksUpdate={(tracks, activeId) => {
               setAvailableAudioTracks(tracks);
               if (audioSettings.activeAudioTrackId === undefined) {
@@ -479,6 +538,12 @@ export default function App() {
           abRepeat={abRepeat}
           isLooping={isLooping}
           aspectRatio={aspectRatio}
+          videoFilters={videoFilters}
+          audioSettings={audioSettings}
+          subtitleSettings={subtitleSettings}
+          subtitleTracks={subtitleTracks}
+          availableAudioTracks={availableAudioTracks}
+          isFullscreen={!!document.fullscreenElement}
           onTogglePlay={() => {
             const nextState = !isPlaying;
             setIsPlaying(nextState);
@@ -495,7 +560,25 @@ export default function App() {
           onToggleAbRepeat={toggleAbRepeat}
           onToggleLooping={() => setIsLooping(!isLooping)}
           onCycleAspectRatio={cycleAspectRatio}
+          onUpdateAspectRatio={setAspectRatio}
           onFrameStep={handleFrameStep}
+          onUpdateFilters={setVideoFilters}
+          onResetFilters={() => setVideoFilters(DEFAULT_VIDEO_FILTERS)}
+          onUpdateAudioSettings={setAudioSettings}
+          onUpdateSubtitleSettings={(stg) => {
+            setSubtitleSettings(stg);
+            saveSubtitleSettings(stg);
+          }}
+          onAddSubtitleTrack={(tr) => setSubtitleTracks((prev) => [...prev, tr])}
+          onSelectAudioTrack={(trackId) =>
+            setAudioSettings((prev) => ({ ...prev, activeAudioTrackId: trackId }))
+          }
+          onTogglePip={() => {
+            if (videoRef.current && document.pictureInPictureEnabled) {
+              videoRef.current.requestPictureInPicture().catch(() => {});
+            }
+          }}
+          onToggleFullscreen={toggleFullscreen}
         />
       </div>
 

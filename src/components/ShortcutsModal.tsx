@@ -29,9 +29,12 @@ export const ShortcutsModal: React.FC<ShortcutsModalProps> = ({ isOpen, onClose 
       <div className="bg-slate-900 border border-slate-700/80 rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto p-6 shadow-2xl text-slate-100 flex flex-col gap-6">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-slate-800 pb-4">
-          <div className="flex items-center gap-2.5 text-yellow-400 font-semibold text-lg">
-            <Keyboard className="w-5 h-5" />
-            <span>VLC Keyboard Shortcuts</span>
+          <div className="flex flex-col">
+            <div className="flex items-center gap-2.5 text-yellow-400 font-semibold text-lg">
+              <Keyboard className="w-5 h-5" />
+              <span>Vortex Keyboard Shortcuts</span>
+            </div>
+            <span className="text-[11px] text-slate-400 mt-0.5">Vortex Local Video Player • Created by Suhail Akhtar</span>
           </div>
           <button
             onClick={onClose}
@@ -54,6 +57,11 @@ export const ShortcutsModal: React.FC<ShortcutsModalProps> = ({ isOpen, onClose 
               </kbd>
             </div>
           ))}
+        </div>
+
+        {/* Modal Footer Credits */}
+        <div className="pt-3 border-t border-slate-800/80 text-center text-[11px] text-slate-500 font-medium">
+          Designed & Developed by <strong className="text-slate-300">Suhail Akhtar</strong>
         </div>
       </div>
     </div>

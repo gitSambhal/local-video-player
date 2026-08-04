@@ -16,6 +16,9 @@ export interface MediaItem {
   logo?: string;
   group?: string;
   isLive?: boolean;
+  mkvFileId?: string;
+  mkvStreamUrl?: string;
+  detectedAudioTracks?: AudioTrackInfo[];
 }
 
 export interface IPTVChannel {

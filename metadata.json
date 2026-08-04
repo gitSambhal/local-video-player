@@ -1,6 +1,6 @@
 {
-  "name": "Video Player",
-  "description": "A modern, gesture-controlled local-first media player supporting versatile codecs, offline playlists, audio visualizers, P2P watch rooms, and custom equalizer settings.",
+  "name": "Vortex Local Video Player",
+  "description": "High-performance local video & audio player built by Suhail Akhtar featuring multi-track audio switching, IPTV streaming, P2P sync watch rooms, audio visualizers, and spatial equalizer controls.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

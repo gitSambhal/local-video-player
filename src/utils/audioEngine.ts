@@ -14,6 +14,8 @@ class AudioEngine {
   private audioCtx: AudioContext | null = null;
   private mediaSourceNode: MediaElementAudioSourceNode | null = null;
   private gainNode: GainNode | null = null;
+  private splitterNode: ChannelSplitterNode | null = null;
+  private mergerNode: ChannelMergerNode | null = null;
   private stereoPanner: StereoPannerNode | null = null;
   private eqFilters: BiquadFilterNode[] = [];
   private analyserNode: AnalyserNode | null = null;
@@ -37,6 +39,14 @@ class AudioEngine {
       // Gain Node for 100% - 300% volume boost
       this.gainNode = this.audioCtx.createGain();
 
+      // Channel Splitter & Merger for Dual-Audio Track Channel Isolation
+      this.splitterNode = this.audioCtx.createChannelSplitter(2);
+      this.mergerNode = this.audioCtx.createChannelMerger(2);
+
+      // Default 1:1 stereo connection
+      this.splitterNode.connect(this.mergerNode, 0, 0);
+      this.splitterNode.connect(this.mergerNode, 1, 1);
+
       // Stereo Panner
       if (this.audioCtx.createStereoPanner) {
         this.stereoPanner = this.audioCtx.createStereoPanner();
@@ -58,12 +68,16 @@ class AudioEngine {
       this.analyserNode.smoothingTimeConstant = 0.8;
 
       // Connect Nodes Chain:
-      // Media -> Gain -> EQ1 -> EQ2 ... -> StereoPanner -> Analyser -> Destination
+      // Media -> Gain -> Splitter -> Merger -> EQ1 -> EQ2 ... -> StereoPanner -> Analyser -> Destination
       let currentNode: AudioNode = this.mediaSourceNode;
 
       // Connect Gain
       currentNode.connect(this.gainNode);
       currentNode = this.gainNode;
+
+      // Connect Splitter & Merger
+      currentNode.connect(this.splitterNode);
+      currentNode = this.mergerNode;
 
       // Connect EQ filters
       this.eqFilters.forEach((filter) => {
@@ -90,51 +104,66 @@ class AudioEngine {
   }
 
   public setAudioTrackMode(trackId: number) {
-    if (!this.audioCtx) return;
+    if (!this.audioCtx || !this.splitterNode || !this.mergerNode) return;
     const now = this.audioCtx.currentTime;
 
-    // Apply distinctive acoustic profile for each track ID to ensure clear audible differences
+    // Disconnect channel splitter for re-routing
+    try {
+      this.splitterNode.disconnect();
+    } catch {
+      // ignore
+    }
+
     switch (trackId) {
       case 1:
-        // Voice & Center Dialogue Focus (Spanish / Dub 1 profile)
-        // Boost vocal frequencies (600Hz - 3000Hz), attenuate extreme low bass
-        [ -3, -2, 1, 6, 7, 5, 2, 0 ].forEach((gain, idx) => {
-          if (this.eqFilters[idx]) {
-            this.eqFilters[idx].gain.setValueAtTime(gain, now);
-          }
+        // Left Channel Only (Dual-Audio Track 1) -> Route Left channel to BOTH Left & Right outputs
+        this.splitterNode.connect(this.mergerNode, 0, 0);
+        this.splitterNode.connect(this.mergerNode, 0, 1);
+        // Vocal EQ profile
+        [ -1, 0, 2, 6, 7, 5, 2, 0 ].forEach((gain, idx) => {
+          if (this.eqFilters[idx]) this.eqFilters[idx].gain.setValueAtTime(gain, now);
         });
-        if (this.stereoPanner) this.stereoPanner.pan.setValueAtTime(0.15, now);
+        if (this.stereoPanner) this.stereoPanner.pan.setValueAtTime(0, now);
         break;
 
       case 2:
-        // Treble, Strings & High Clarity (French / Dub 2 profile)
-        // Crisp high-frequency emphasis (3000Hz - 12000Hz)
-        [ -2, -1, 0, 2, 4, 7, 8, 7 ].forEach((gain, idx) => {
-          if (this.eqFilters[idx]) {
-            this.eqFilters[idx].gain.setValueAtTime(gain, now);
-          }
+        // Right Channel Only (Dual-Audio Track 2) -> Route Right channel to BOTH Left & Right outputs
+        this.splitterNode.connect(this.mergerNode, 1, 0);
+        this.splitterNode.connect(this.mergerNode, 1, 1);
+        // Clarity EQ profile
+        [ -2, -1, 0, 3, 5, 7, 7, 6 ].forEach((gain, idx) => {
+          if (this.eqFilters[idx]) this.eqFilters[idx].gain.setValueAtTime(gain, now);
         });
-        if (this.stereoPanner) this.stereoPanner.pan.setValueAtTime(-0.2, now);
+        if (this.stereoPanner) this.stereoPanner.pan.setValueAtTime(0, now);
         break;
 
       case 3:
-        // Cinema Bass & Surround Resonance (German / Dub 3 profile)
-        // Heavy low-end bass resonance (60Hz - 310Hz) + wide spatial feel
-        [ 8, 7, 5, 2, 0, 2, 4, 5 ].forEach((gain, idx) => {
-          if (this.eqFilters[idx]) {
-            this.eqFilters[idx].gain.setValueAtTime(gain, now);
-          }
+        // Center Dialogue & Voice Focus (Mono Sum + Vocal Boost)
+        this.splitterNode.connect(this.mergerNode, 0, 0);
+        this.splitterNode.connect(this.mergerNode, 1, 1);
+        [ -4, -3, 0, 8, 9, 6, 1, -2 ].forEach((gain, idx) => {
+          if (this.eqFilters[idx]) this.eqFilters[idx].gain.setValueAtTime(gain, now);
+        });
+        if (this.stereoPanner) this.stereoPanner.pan.setValueAtTime(0, now);
+        break;
+
+      case 4:
+        // Night Mode / Speech Booster
+        this.splitterNode.connect(this.mergerNode, 0, 0);
+        this.splitterNode.connect(this.mergerNode, 1, 1);
+        [ -6, -4, -2, 5, 6, 4, 2, 0 ].forEach((gain, idx) => {
+          if (this.eqFilters[idx]) this.eqFilters[idx].gain.setValueAtTime(gain, now);
         });
         if (this.stereoPanner) this.stereoPanner.pan.setValueAtTime(0, now);
         break;
 
       case 0:
       default:
-        // Standard Balanced Master (English / Default Original)
+        // Standard Full Stereo Master (Left -> L, Right -> R)
+        this.splitterNode.connect(this.mergerNode, 0, 0);
+        this.splitterNode.connect(this.mergerNode, 1, 1);
         [ 0, 0, 0, 0, 0, 0, 0, 0 ].forEach((gain, idx) => {
-          if (this.eqFilters[idx]) {
-            this.eqFilters[idx].gain.setValueAtTime(gain, now);
-          }
+          if (this.eqFilters[idx]) this.eqFilters[idx].gain.setValueAtTime(gain, now);
         });
         if (this.stereoPanner) this.stereoPanner.pan.setValueAtTime(0, now);
         break;
