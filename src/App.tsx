@@ -11,7 +11,6 @@ import {
   ABRepeatState,
   AudioTrackInfo,
 } from './types';
-import { SAMPLE_MEDIA_LIST } from './data/sampleMedia';
 import {
   getRecentMedia,
   saveRecentMedia,
@@ -26,7 +25,6 @@ import {
   DEFAULT_AUDIO_SETTINGS,
 } from './utils/storage';
 import { p2pSync } from './utils/p2pSync';
-import { audioEngine, EQ_PRESETS } from './utils/audioEngine';
 import { uploadAndInspectMkv } from './utils/mkvUploader';
 
 import { CanvasPlayer } from './components/VideoPlayer/CanvasPlayer';
@@ -56,9 +54,13 @@ export default function App() {
   const [isLooping, setIsLooping] = useState<boolean>(false);
   const [isMusicMode, setIsMusicMode] = useState<boolean>(false);
 
-  // Live TV Full-Screen View State (Never inside a popup)
-  const [isLiveTvActive, setIsLiveTvActive] = useState<boolean>(false);
+  // Live TV Specific Launch State (Default to Live TV Portal)
+  const [isLiveTvActive, setIsLiveTvActive] = useState<boolean>(true);
   const [liveTvUrl, setLiveTvUrl] = useState<string>('https://iptv-org.github.io/iptv/index.m3u');
+
+  // Playlist Channel Zapping State
+  const [playlistChannels, setPlaylistChannels] = useState<MediaItem[]>([]);
+  const [currentChannelIndex, setCurrentChannelIndex] = useState<number>(-1);
 
   // Settings & Filter states
   const [videoFilters, setVideoFilters] = useState<VideoFilters>(DEFAULT_VIDEO_FILTERS);
@@ -102,12 +104,24 @@ export default function App() {
     setBookmarks(getBookmarks());
   }, []);
 
-  // Save selected media to recents & inspect local file for multi-audio tracks
-  const handleSelectMedia = async (media: MediaItem, rawFile?: File) => {
+  // Handle channel selection and playlist zapping
+  const handleSelectMedia = async (
+    media: MediaItem,
+    allChannels?: MediaItem[],
+    indexInPlaylist?: number,
+    rawFile?: File
+  ) => {
     setCurrentMedia(media);
     saveRecentMedia(media);
     setRecentMedia(getRecentMedia());
     setIsPlaying(true);
+    setIsLiveTvActive(false);
+
+    if (allChannels && allChannels.length > 0) {
+      setPlaylistChannels(allChannels);
+      setCurrentChannelIndex(indexInPlaylist !== undefined ? indexInPlaylist : 0);
+    }
+
     if (media.isAudioOnly) {
       setIsMusicMode(true);
     }
@@ -133,12 +147,7 @@ export default function App() {
             detectedAudioTracks: res.audioTracks,
           };
           setCurrentMedia(updatedMedia);
-          if (res.audioTracks.length > 1) {
-            setMkvAnalysisStatus(`Found ${res.audioTracks.length} Audio Tracks (${res.audioTracks.map((t) => t.name).join(', ')}). Switch audio anytime in the top dropdown!`);
-            setTimeout(() => setMkvAnalysisStatus(null), 5000);
-          } else {
-            setMkvAnalysisStatus(null);
-          }
+          setMkvAnalysisStatus(null);
         } else {
           setMkvAnalysisStatus(null);
         }
@@ -152,6 +161,24 @@ export default function App() {
     } else {
       setAvailableAudioTracks([]);
       setMkvAnalysisStatus(null);
+    }
+  };
+
+  // TV Channel Zapping (Next / Previous)
+  const handleZapChannel = (direction: 'next' | 'prev') => {
+    if (!playlistChannels || playlistChannels.length === 0 || currentChannelIndex < 0) return;
+
+    let nextIndex = direction === 'next' ? currentChannelIndex + 1 : currentChannelIndex - 1;
+    if (nextIndex >= playlistChannels.length) nextIndex = 0;
+    if (nextIndex < 0) nextIndex = playlistChannels.length - 1;
+
+    const nextChannel = playlistChannels[nextIndex];
+    if (nextChannel) {
+      setCurrentChannelIndex(nextIndex);
+      setCurrentMedia(nextChannel);
+      setIsPlaying(true);
+      saveRecentMedia(nextChannel);
+      setRecentMedia(getRecentMedia());
     }
   };
 
@@ -211,10 +238,9 @@ export default function App() {
     }
   };
 
-  // Keyboard Shortcuts Handler
+  // Keyboard Shortcuts Handler (Includes PageUp/PageDown for TV Channel Zapping)
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
-      // Ignore key events when typing inside inputs
       if (
         document.activeElement?.tagName === 'INPUT' ||
         document.activeElement?.tagName === 'TEXTAREA' ||
@@ -245,6 +271,14 @@ export default function App() {
           e.preventDefault();
           if (videoRef.current) videoRef.current.currentTime = Math.min(duration, currentTime + 5);
           break;
+        case 'pageup':
+          e.preventDefault();
+          handleZapChannel('next');
+          break;
+        case 'pagedown':
+          e.preventDefault();
+          handleZapChannel('prev');
+          break;
         case 'arrowup':
           e.preventDefault();
           setAudioSettings((prev) => {
@@ -259,45 +293,13 @@ export default function App() {
             return { ...prev, gain: newGain, volume: Math.min(1, newGain) };
           });
           break;
-        case 'j':
-          e.preventDefault();
-          if (videoRef.current) videoRef.current.currentTime = Math.max(0, currentTime - 10);
-          break;
-        case 'l':
-          e.preventDefault();
-          if (videoRef.current) videoRef.current.currentTime = Math.min(duration, currentTime + 10);
-          break;
-        case '[':
-          e.preventDefault();
-          setPlaybackSpeed((prev) => Math.max(0.25, Number((prev - 0.25).toFixed(2))));
-          break;
-        case ']':
-          e.preventDefault();
-          setPlaybackSpeed((prev) => Math.min(4.0, Number((prev + 0.25).toFixed(2))));
-          break;
         case 'c':
           e.preventDefault();
           cycleAspectRatio();
           break;
-        case 'v':
-          e.preventDefault();
-          setSubtitleSettings((prev) => {
-            const updated = { ...prev, enabled: !prev.enabled };
-            saveSubtitleSettings(updated);
-            return updated;
-          });
-          break;
-        case 's':
-          e.preventDefault();
-          setIsSnapshotOpen(true);
-          break;
-        case 'z':
-          e.preventDefault();
-          toggleAbRepeat();
-          break;
       }
     },
-    [currentTime, duration]
+    [currentTime, duration, playlistChannels, currentChannelIndex]
   );
 
   useEffect(() => {
@@ -333,7 +335,7 @@ export default function App() {
 
   const handleFrameStep = (direction: 'prev' | 'next') => {
     if (!videoRef.current) return;
-    const frameTime = 1 / 30; // 30fps step
+    const frameTime = 1 / 30;
     setIsPlaying(false);
     videoRef.current.currentTime =
       direction === 'next'
@@ -377,57 +379,33 @@ export default function App() {
       <IPTVManager
         initialUrl={liveTvUrl}
         currentPlayingMedia={currentMedia}
-        onSelectChannel={(media) => {
-          handleSelectMedia(media);
-          setIsLiveTvActive(false);
+        onSelectChannel={(media, allChannels, currentIndex) => {
+          handleSelectMedia(media, allChannels, currentIndex);
         }}
-        onBack={() => setIsLiveTvActive(false)}
-        onClose={() => setIsLiveTvActive(false)}
+        onBack={currentMedia ? () => setIsLiveTvActive(false) : undefined}
+        onClose={currentMedia ? () => setIsLiveTvActive(false) : undefined}
       />
     );
   }
 
   if (!currentMedia) {
     return (
-      <>
-        <WelcomeLauncher
-          onSelectMedia={handleSelectMedia}
-          onOpenIPTV={(initialUrl) => {
-            if (initialUrl) setLiveTvUrl(initialUrl);
-            setIsLiveTvActive(true);
-          }}
-          recentMedia={recentMedia}
-          onRemoveRecent={(id) => {
-            removeRecentMedia(id);
-            setRecentMedia(getRecentMedia());
-          }}
-          onClearRecents={() => {
-            clearRecentMedia();
-            setRecentMedia([]);
-          }}
-        />
-
-        {/* Channels & Library Dialog accessible from Initial Screen */}
-        <MediaLibrary
-          isOpen={isLibraryOpen}
-          onClose={() => setIsLibraryOpen(false)}
-          recentMedia={recentMedia}
-          currentMediaId={currentMedia?.id}
-          onSelectMedia={handleSelectMedia}
-          onRemoveRecent={(id) => {
-            removeRecentMedia(id);
-            setRecentMedia(getRecentMedia());
-          }}
-          onClearRecents={() => {
-            clearRecentMedia();
-            setRecentMedia([]);
-          }}
-          onOpenLiveTV={(url) => {
-            if (url) setLiveTvUrl(url);
-            setIsLiveTvActive(true);
-          }}
-        />
-      </>
+      <WelcomeLauncher
+        onSelectMedia={handleSelectMedia}
+        onOpenIPTV={(initialUrl) => {
+          if (initialUrl) setLiveTvUrl(initialUrl);
+          setIsLiveTvActive(true);
+        }}
+        recentMedia={recentMedia}
+        onRemoveRecent={(id) => {
+          removeRecentMedia(id);
+          setRecentMedia(getRecentMedia());
+        }}
+        onClearRecents={() => {
+          clearRecentMedia();
+          setRecentMedia([]);
+        }}
+      />
     );
   }
 
@@ -435,7 +413,7 @@ export default function App() {
     <div
       ref={containerRef}
       onMouseMove={handleMouseMove}
-      className="relative w-screen h-screen bg-slate-950 text-slate-100 flex flex-col font-sans overflow-hidden select-none"
+      className="relative w-screen h-screen bg-black text-neutral-100 flex flex-col font-sans overflow-hidden select-none"
     >
       {/* Top Bar HUD */}
       <div className={`transition-opacity duration-300 ${showHud ? 'opacity-100' : 'opacity-0 pointer-events-none'} z-40 relative`}>
@@ -447,10 +425,7 @@ export default function App() {
           isMusicMode={isMusicMode}
           onOpenLibrary={() => setIsLibraryOpen(true)}
           onOpenLiveTV={() => setIsLiveTvActive(true)}
-          onReturnHome={() => {
-            setIsPlaying(false);
-            setCurrentMedia(null);
-          }}
+          onReturnHome={() => setIsLiveTvActive(true)}
           onToggleMusicMode={() => setIsMusicMode(!isMusicMode)}
           onOpenP2PModal={() => setIsP2POpen(true)}
           onOpenVideoFilters={() => setIsVideoFiltersOpen(true)}
@@ -473,17 +448,15 @@ export default function App() {
         />
       </div>
 
-      {/* Main Canvas View (Video Player AND Music Visualizer Overlay) */}
+      {/* Main Canvas View */}
       <div className="relative flex-1 w-full h-full">
-        {/* MKV Stream Analysis Toast Pill */}
         {mkvAnalysisStatus && (
-          <div className="absolute top-4 left-1/2 -translate-x-1/2 z-40 bg-purple-950/90 backdrop-blur-md border border-purple-500/50 text-purple-200 px-4 py-2 rounded-full shadow-2xl text-xs font-medium flex items-center gap-2 animate-bounce">
-            <span className="w-2 h-2 rounded-full bg-purple-400 animate-ping" />
+          <div className="absolute top-4 left-1/2 -translate-x-1/2 z-40 bg-red-950/90 backdrop-blur-md border border-red-500/50 text-red-200 px-4 py-2 rounded-full shadow-2xl text-xs font-medium flex items-center gap-2 animate-bounce">
+            <span className="w-2 h-2 rounded-full bg-red-400 animate-ping" />
             <span>{mkvAnalysisStatus}</span>
           </div>
         )}
 
-        {/* CanvasPlayer stays rendered in DOM so HTML5 video/audio node is never unmounted */}
         <div className={`w-full h-full ${isMusicMode ? 'opacity-0 pointer-events-none absolute inset-0' : 'block'}`}>
           <CanvasPlayer
             media={currentMedia}
@@ -499,7 +472,9 @@ export default function App() {
               setDuration(dur);
             }}
             onEnded={() => {
-              if (isLooping && videoRef.current) {
+              if (playlistChannels.length > 0) {
+                handleZapChannel('next');
+              } else if (isLooping && videoRef.current) {
                 videoRef.current.currentTime = 0;
                 videoRef.current.play();
               } else {
@@ -525,10 +500,7 @@ export default function App() {
             }}
             onOpenLibrary={() => setIsLibraryOpen(true)}
             onOpenLiveTV={() => setIsLiveTvActive(true)}
-            onReturnHome={() => {
-              setIsPlaying(false);
-              setCurrentMedia(null);
-            }}
+            onReturnHome={() => setIsLiveTvActive(true)}
             onAudioTracksUpdate={(tracks, activeId) => {
               setAvailableAudioTracks(tracks);
               if (audioSettings.activeAudioTrackId === undefined) {
@@ -538,7 +510,6 @@ export default function App() {
           />
         </div>
 
-        {/* MusicVisualizer renders on top when Audio Mode is active */}
         {isMusicMode && (
           <div className="absolute inset-0 z-10 w-full h-full">
             <MusicVisualizer

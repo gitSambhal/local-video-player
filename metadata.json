@@ -1,6 +1,6 @@
 {
-  "name": "Vortex Local Video Player",
-  "description": "High-performance local video & audio player built by Suhail Akhtar featuring multi-track audio switching, IPTV streaming, P2P sync watch rooms, audio visualizers, and spatial equalizer controls.",
+  "name": "Vortex Live TV",
+  "description": "Minimalist Live TV application developed by Suhail Akhtar featuring high-speed channel health diagnostics, fast zapping, multi-category filtering, and HLS live streaming.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

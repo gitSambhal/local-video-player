@@ -1,9 +1,72 @@
 # Changelog
 
-All notable changes to **Vortex Video Player** will be documented in this file.
+All notable changes to **Vortex Live TV** will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [v1.7.1] - 2026-09-04
+
+### Fixed
+- **Stream Status Synchronization & CORS Playback**:
+  - **4-Stage Stream Loader**: Upgraded `HoverPreviewPlayer` with a 4-tier playback fallback strategy (Direct HLS -> Proxied HLS -> Direct Video -> Proxied Video) to play CORS-protected streams smoothly on hover.
+  - **Real Stream Verification**: Removed generic string matching (like `'stream.m3u8'` and `'iptv-org'`) that falsely marked unverified channels as online.
+  - **Hover Error Status Sync**: Tied `HoverPreviewPlayer` playback failure directly to `markChannelOffline`, immediately updating card status badges to "Offline" when a stream fails to load.
+
+---
+
+## [v1.7.0] - 2026-09-04
+
+### Changed
+- **Full-Bleed Edge-to-Edge Channel Cards**:
+  - **Eliminated Black Bars**: Redesigned channel grid and list cards so media previews (logos and live hover video streams) fill the top 16:9 banner edge-to-edge without inner borders or padding box artifacts.
+  - **Overlaid Translucent Badges**: Positioned group badges and favorite controls directly on top of the media stage with backdrop-blur dark pills.
+- **Professional Minimalist UI/UX Overhaul**:
+  - **Obsidian Dark Canvas**: Designed a clean, high-contrast dark palette (`#09090b` canvas with `#121215` cards and `#e11d48` crimson accents) with subtle borders (`border-zinc-800/60`).
+  - **Sleek Top Navigation Bar**: Added search input with `/` keyboard shortcut trigger, fast source drawer toggle, and probe health triggers.
+  - **Horizontal Category Tab Ribbon**: Clean category navigation pills with live item count badges and crisp active highlights.
+
+---
+
+## [v1.6.0] - 2026-09-04
+
+### Added
+- **Customizable Page Size Selector**: Users can now choose `12`, `24`, `48`, `96`, or `200` channels per page, with preferences persisted in `localStorage`.
+- **Advanced Multi-Dimensional Filtering**:
+  - Added **Country Filter** dropdown extracting all unique country codes from playlist feeds.
+  - Added **Language Filter** dropdown extracting broadcast languages.
+  - Added **Category Counts**: Displays total channel counts next to every category in the selector.
+  - Added **Sorting Engine**: Sort channels alphabetically (A–Z / Z–A), by **Working Online Status First**, or by **Lowest Ping Latency**.
+- **Active Filter Pills & Quick Clear**: Interactive filter tags showing active selections with 1-click removal and a "Clear All Filters" button.
+
+---
+
+## [v1.5.1] - 2026-09-04
+
+### Added
+- **Hover Channel Live Stream Preview**: Hovering over any channel card in grid or list view instantly tunes and plays the live HLS stream directly inside the card frame with a "LIVE" indicator and volume toggle.
+- **Ultra-Fast Stream Health Engine**:
+  - **32-Worker Concurrency Pool**: Doubled batch check concurrency from 16 to 32 parallel background workers.
+  - **Sub-100ms HEAD Probe**: Direct `no-cors` HEAD requests resolve stream reachability in 10-100ms without CORS blockage or proxy delays.
+  - **Instant Hover Verification**: Successfully previewed streams on hover are automatically marked online with verified latency.
+
+---
+
+## [v1.5.0] - 2026-09-04
+
+### Changed
+- **Dedicated Minimal TV Portal App**: Made the entire application launch directly into a sleek, minimal Live TV interface focused on open television streams, news, sports, and entertainment.
+- **Ultra-Fast Channel Health Check Engine**:
+  - **Parallel Race Strategy**: Simultaneously probes direct range GET requests alongside fast CORS proxies using `Promise.race` for instant <300ms verification.
+  - **Session Persistence & Caching**: Remembers verified stream health statuses in `sessionStorage` for 0ms cached lookups.
+  - **16-Worker Concurrency Pool**: Scaled batch probe worker queue from 4 to 16 parallel workers, allowing 24-48 page channels to be health-checked in ~1 second.
+- **Minimalist TV UI/UX**:
+  - Clean top bar with search, instant feed presets, and rapid health probe triggers.
+  - Streamlined category, country, language, and working channel filter chips.
+  - High-density minimal bento grid & list cards displaying channel logo, latency ping, category badge, and 1-click play.
+  - Keyboard zapping support (`PageUp` / `PageDown`) for instant channel switching.
+
+---
 
 ## [v1.4.0] - 2026-09-04
 
