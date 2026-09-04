@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { MediaItem } from '../../types';
 import { SAMPLE_MEDIA_LIST } from '../../data/sampleMedia';
-import { IPTVManager } from './IPTVManager';
 import {
   FolderOpen,
   Upload,
@@ -15,6 +14,7 @@ import {
   Search,
   X,
   Tv,
+  ExternalLink,
 } from 'lucide-react';
 
 interface MediaLibraryProps {
@@ -25,6 +25,7 @@ interface MediaLibraryProps {
   onSelectMedia: (media: MediaItem) => void;
   onRemoveRecent: (id: string) => void;
   onClearRecents: () => void;
+  onOpenLiveTV?: (initialUrl?: string) => void;
 }
 
 export const MediaLibrary: React.FC<MediaLibraryProps> = ({
@@ -35,12 +36,12 @@ export const MediaLibrary: React.FC<MediaLibraryProps> = ({
   onSelectMedia,
   onRemoveRecent,
   onClearRecents,
+  onOpenLiveTV,
 }) => {
-  const [activeTab, setActiveTab] = useState<'samples' | 'recents' | 'iptv' | 'url' | 'upload'>('iptv');
+  const [activeTab, setActiveTab] = useState<'samples' | 'recents' | 'url' | 'upload'>('samples');
   const [urlInput, setUrlInput] = useState('');
   const [urlTitleInput, setUrlTitleInput] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
-  const [iptvUrlOverride, setIptvUrlOverride] = useState<string | undefined>(undefined);
 
   if (!isOpen) return null;
 
@@ -49,13 +50,14 @@ export const MediaLibrary: React.FC<MediaLibraryProps> = ({
     if (!files || files.length === 0) return;
 
     Array.from(files).forEach((file: File) => {
+      const objectUrl = URL.createObjectURL(file);
       const isM3u = file.name.endsWith('.m3u') || file.name.endsWith('.m3u8');
       if (isM3u) {
-        setActiveTab('iptv');
+        onClose();
+        if (onOpenLiveTV) onOpenLiveTV(objectUrl);
         return;
       }
 
-      const objectUrl = URL.createObjectURL(file);
       const isAudio = file.type.startsWith('audio');
       const mediaItem: MediaItem & { fileObj?: File } = {
         id: `file-${Date.now()}-${Math.random().toString(36).substring(7)}`,
@@ -71,9 +73,7 @@ export const MediaLibrary: React.FC<MediaLibraryProps> = ({
       };
       onSelectMedia(mediaItem);
     });
-    if (activeTab !== 'iptv') {
-      onClose();
-    }
+    onClose();
   };
 
   const handleUrlSubmit = (e: React.FormEvent) => {
@@ -84,8 +84,8 @@ export const MediaLibrary: React.FC<MediaLibraryProps> = ({
     const isM3uPlaylist = src.includes('.m3u') || src.includes('iptv') || src.includes('index.m3u');
 
     if (isM3uPlaylist && !src.endsWith('.m3u8')) {
-      setIptvUrlOverride(src);
-      setActiveTab('iptv');
+      onClose();
+      if (onOpenLiveTV) onOpenLiveTV(src);
       return;
     }
 
@@ -115,13 +115,13 @@ export const MediaLibrary: React.FC<MediaLibraryProps> = ({
   );
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4 animate-fade-in font-sans">
-      <div className="bg-neutral-900 border border-neutral-800 rounded-2xl w-full max-w-4xl max-h-[92vh] overflow-hidden p-6 shadow-2xl text-neutral-100 flex flex-col gap-5">
+    <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-3 sm:p-4 animate-fade-in font-sans">
+      <div className="bg-neutral-900 border border-neutral-800 rounded-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden p-4 sm:p-6 shadow-2xl text-neutral-100 flex flex-col gap-4 sm:gap-5 transition-all duration-300">
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-neutral-800 pb-4">
-          <div className="flex items-center gap-2.5 text-white font-bold text-lg">
+        <div className="flex items-center justify-between border-b border-neutral-800 pb-3 sm:pb-4">
+          <div className="flex items-center gap-2.5 text-white font-bold text-base sm:text-lg">
             <FolderOpen className="w-5 h-5 text-red-500" />
-            <span>Media Library & Live Catalog</span>
+            <span>Media Library</span>
           </div>
           <button
             onClick={onClose}
@@ -133,17 +133,20 @@ export const MediaLibrary: React.FC<MediaLibraryProps> = ({
 
         {/* Navigation Tabs */}
         <div className="flex items-center gap-2 border-b border-neutral-800 pb-2 overflow-x-auto scrollbar-none">
-          <button
-            onClick={() => setActiveTab('iptv')}
-            className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-all shrink-0 ${
-              activeTab === 'iptv'
-                ? 'bg-red-600 text-white shadow-md shadow-red-950/60'
-                : 'text-neutral-400 hover:text-white hover:bg-neutral-800'
-            }`}
-          >
-            <Tv className="w-4 h-4" />
-            <span>IPTV Live Channels</span>
-          </button>
+          {onOpenLiveTV && (
+            <button
+              onClick={() => {
+                onClose();
+                onOpenLiveTV();
+              }}
+              className="px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-all shrink-0 bg-red-950/80 hover:bg-red-900 border border-red-700/70 text-white shadow-md active:scale-95"
+              title="Switch to Full-Screen Live TV Guide"
+            >
+              <Tv className="w-4 h-4 text-red-500" />
+              <span>Live TV Guide (Full View)</span>
+              <ExternalLink className="w-3 h-3 text-red-300" />
+            </button>
+          )}
 
           <button
             onClick={() => setActiveTab('samples')}
@@ -194,18 +197,6 @@ export const MediaLibrary: React.FC<MediaLibraryProps> = ({
           </button>
         </div>
 
-        {/* Tab: IPTV Channels */}
-        {activeTab === 'iptv' && (
-          <IPTVManager
-            initialUrl={iptvUrlOverride || 'https://iptv-org.github.io/iptv/index.m3u'}
-            onSelectChannel={(media) => {
-              onSelectMedia(media);
-              onClose();
-            }}
-            onClose={onClose}
-          />
-        )}
-
         {/* Tab 1: Sample Media Catalog */}
         {activeTab === 'samples' && (
           <div className="flex flex-col gap-4 overflow-y-auto max-h-[60vh] pr-1">
@@ -247,8 +238,16 @@ export const MediaLibrary: React.FC<MediaLibraryProps> = ({
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300 opacity-90"
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-neutral-950 via-transparent to-transparent" />
-                    <div className="absolute top-2 right-2 bg-neutral-900/90 text-neutral-300 font-mono text-[10px] px-2 py-0.5 rounded border border-neutral-700 font-semibold">
-                      {sample.format}
+                    <div className="absolute top-2 right-2 flex items-center gap-1.5">
+                      {sample.isLive && (
+                        <span className="flex items-center gap-1 bg-emerald-950/90 text-emerald-400 border border-emerald-600/70 font-bold text-[9px] px-2 py-0.5 rounded-full shadow-sm">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping" />
+                          LIVE
+                        </span>
+                      )}
+                      <span className="bg-neutral-900/90 text-neutral-300 font-mono text-[10px] px-2 py-0.5 rounded border border-neutral-700 font-semibold">
+                        {sample.format}
+                      </span>
                     </div>
                     <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-black/40">
                       <div className="w-10 h-10 rounded-full bg-red-600 text-white flex items-center justify-center shadow-lg">

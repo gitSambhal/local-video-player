@@ -450,12 +450,17 @@ export const WelcomeLauncher: React.FC<WelcomeLauncherProps> = ({
                     </div>
                   </div>
 
-                  {/* Multi-Audio Badge */}
-                  {sample.title.toLowerCase().includes('multi-audio') && (
+                  {/* Multi-Audio Badge or Live Badge */}
+                  {sample.isLive ? (
+                    <span className="absolute top-2 left-2 px-2 py-0.5 rounded-full text-[9px] font-bold bg-emerald-950/90 text-emerald-300 border border-emerald-600/70 shadow-md flex items-center gap-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
+                      LIVE TV
+                    </span>
+                  ) : sample.title.toLowerCase().includes('multi-audio') ? (
                     <span className="absolute top-2 left-2 px-1.5 py-0.5 rounded text-[9px] font-bold bg-red-600 text-white shadow-md">
                       DUAL AUDIO
                     </span>
-                  )}
+                  ) : null}
                 </div>
 
                 {/* Info */}
@@ -473,7 +478,14 @@ export const WelcomeLauncher: React.FC<WelcomeLauncherProps> = ({
                     <span className="px-1.5 py-0.5 rounded text-[9px] font-mono bg-neutral-950 text-neutral-300 border border-neutral-800 font-semibold">
                       {sample.format}
                     </span>
-                    <span className="text-[10px] text-emerald-400 font-bold ml-auto">98% Match</span>
+                    {sample.isLive ? (
+                      <span className="text-[10px] text-emerald-400 font-bold ml-auto flex items-center gap-1">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                        Online
+                      </span>
+                    ) : (
+                      <span className="text-[10px] text-emerald-400 font-bold ml-auto">98% Match</span>
+                    )}
                   </div>
                 </div>
               </div>
@@ -482,15 +494,20 @@ export const WelcomeLauncher: React.FC<WelcomeLauncherProps> = ({
         </div>
 
         {/* ROW 3: IPTV Live TV & Global Channels */}
-        <div className="bg-neutral-900/60 border border-neutral-800 rounded-2xl p-6 flex flex-col sm:flex-row items-center justify-between gap-6 shadow-xl">
+        <div className="bg-neutral-900/70 border border-neutral-800 rounded-2xl p-6 flex flex-col sm:flex-row items-center justify-between gap-6 shadow-xl">
           <div className="flex items-center gap-4">
             <div className="w-12 h-12 rounded-2xl bg-red-950/80 text-red-500 border border-red-800/50 flex items-center justify-center shrink-0">
               <Tv className="w-6 h-6" />
             </div>
             <div>
-              <h3 className="text-base font-bold text-white">Live IPTV Channel Explorer</h3>
-              <p className="text-xs text-neutral-400 mt-0.5">
-                Stream 10,000+ open global TV channels (Sports, News, Movies, Music) via M3U playlist indexing.
+              <div className="flex items-center gap-2">
+                <h3 className="text-base font-bold text-white">Live IPTV Guide & Channel Health Monitor</h3>
+                <span className="px-2 py-0.5 rounded-full bg-emerald-950/80 border border-emerald-600/70 text-emerald-400 text-[10px] font-bold">
+                  NEW • HEALTH CHECK
+                </span>
+              </div>
+              <p className="text-xs text-neutral-400 mt-0.5 leading-relaxed">
+                Stream 10,000+ open global TV channels with real-time stream health monitoring, instant ping diagnostics, and working channel filtering so you always know which streams are online before playing.
               </p>
             </div>
           </div>
@@ -500,7 +517,7 @@ export const WelcomeLauncher: React.FC<WelcomeLauncherProps> = ({
             className="px-6 py-3 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold text-xs flex items-center gap-2 shrink-0 shadow-lg transition-all active:scale-95"
           >
             <Tv className="w-4 h-4" />
-            <span>Launch IPTV Guide</span>
+            <span>Launch Live TV Guide</span>
             <ChevronRight className="w-4 h-4" />
           </button>
         </div>

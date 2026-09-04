@@ -21,6 +21,15 @@ export interface MediaItem {
   detectedAudioTracks?: AudioTrackInfo[];
 }
 
+export type ChannelHealthStatus = 'online' | 'offline' | 'checking' | 'untested';
+
+export interface ChannelHealthInfo {
+  status: ChannelHealthStatus;
+  latency?: number; // in milliseconds
+  checkedAt?: number;
+  error?: string;
+}
+
 export interface IPTVChannel {
   id: string;
   name: string;
@@ -31,6 +40,7 @@ export interface IPTVChannel {
   language?: string;
   country?: string;
   isPlaylist?: boolean;
+  health?: ChannelHealthInfo;
 }
 
 export interface M3UPlaylist {
@@ -138,4 +148,5 @@ export interface SampleMedia {
   thumbnail: string;
   artist?: string;
   description: string;
+  isLive?: boolean;
 }

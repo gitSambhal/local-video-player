@@ -32,6 +32,7 @@ interface CanvasPlayerProps {
   containerRef: React.RefObject<HTMLDivElement | null>;
   onRegisterSnapshotFn?: (fn: () => string | null) => void;
   onOpenLibrary?: () => void;
+  onOpenLiveTV?: () => void;
   onReturnHome?: () => void;
   onAudioTracksUpdate?: (tracks: AudioTrackInfo[], currentTrackId: number) => void;
 }
@@ -55,6 +56,7 @@ export const CanvasPlayer: React.FC<CanvasPlayerProps> = ({
   containerRef,
   onRegisterSnapshotFn,
   onOpenLibrary,
+  onOpenLiveTV,
   onReturnHome,
   onAudioTracksUpdate,
 }) => {
@@ -636,12 +638,12 @@ export const CanvasPlayer: React.FC<CanvasPlayerProps> = ({
                 <span>Switch Proxy (Mode {(proxyIndex + 1) % 4})</span>
               </button>
 
-              {onOpenLibrary && (
+              {(onOpenLiveTV || onOpenLibrary) && (
                 <button
-                  onClick={onOpenLibrary}
-                  className="px-4 py-2.5 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-neutral-300 hover:text-white font-semibold text-xs transition-all border border-neutral-700"
+                  onClick={onOpenLiveTV || onOpenLibrary}
+                  className="px-4 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold text-xs transition-all shadow-md active:scale-95"
                 >
-                  More Channels
+                  Browse Working Channels
                 </button>
               )}
             </div>

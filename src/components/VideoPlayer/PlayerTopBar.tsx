@@ -8,6 +8,7 @@ import {
   Keyboard,
   ArrowLeft,
   Bookmark,
+  Tv,
 } from 'lucide-react';
 
 interface PlayerTopBarProps {
@@ -17,6 +18,7 @@ interface PlayerTopBarProps {
   p2pPeerCount: number;
   isMusicMode: boolean;
   onOpenLibrary: () => void;
+  onOpenLiveTV?: () => void;
   onReturnHome?: () => void;
   onToggleMusicMode: () => void;
   onOpenP2PModal: () => void;
@@ -39,6 +41,7 @@ export const PlayerTopBar: React.FC<PlayerTopBarProps> = ({
   isP2PActive,
   p2pPeerCount,
   onOpenLibrary,
+  onOpenLiveTV,
   onReturnHome,
   onOpenP2PModal,
   onOpenBookmarks,
@@ -62,11 +65,22 @@ export const PlayerTopBar: React.FC<PlayerTopBarProps> = ({
         <button
           onClick={onOpenLibrary}
           className="p-2 sm:p-2.5 rounded-xl bg-neutral-900/80 hover:bg-neutral-800 border border-neutral-700/80 text-neutral-200 hover:text-white transition-all flex items-center gap-2 group shadow-md"
-          title="Open Media Library & IPTV Channels"
+          title="Open Media Library (Local, Samples, URLs)"
         >
           <FolderOpen className="w-4 h-4 text-red-500 group-hover:scale-110 transition-transform" />
           <span className="text-xs font-semibold hidden sm:inline">Library</span>
         </button>
+
+        {onOpenLiveTV && (
+          <button
+            onClick={onOpenLiveTV}
+            className="p-2 sm:p-2.5 rounded-xl bg-neutral-900/80 hover:bg-neutral-800 border border-neutral-700/80 text-neutral-200 hover:text-white transition-all flex items-center gap-2 group shadow-md"
+            title="Open Live TV Guide & Channel Health (Full View)"
+          >
+            <Tv className="w-4 h-4 text-red-500 group-hover:scale-110 transition-transform" />
+            <span className="text-xs font-semibold hidden sm:inline">Live TV</span>
+          </button>
+        )}
 
         <div className="overflow-hidden">
           <h1 className="text-xs sm:text-sm font-bold text-white truncate flex items-center gap-2">

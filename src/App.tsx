@@ -41,6 +41,7 @@ import { SnapshotGifModal } from './components/VideoPlayer/SnapshotGifModal';
 import { P2PSyncModal } from './components/P2PRoom/P2PSyncModal';
 import { ShortcutsModal } from './components/ShortcutsModal';
 import { MediaLibrary } from './components/Library/MediaLibrary';
+import { IPTVManager } from './components/Library/IPTVManager';
 import { MusicVisualizer } from './components/MusicMode/MusicVisualizer';
 import { WelcomeLauncher } from './components/WelcomeLauncher';
 
@@ -54,6 +55,10 @@ export default function App() {
   const [aspectRatio, setAspectRatio] = useState<AspectRatioMode>('fit');
   const [isLooping, setIsLooping] = useState<boolean>(false);
   const [isMusicMode, setIsMusicMode] = useState<boolean>(false);
+
+  // Live TV Full-Screen View State (Never inside a popup)
+  const [isLiveTvActive, setIsLiveTvActive] = useState<boolean>(false);
+  const [liveTvUrl, setLiveTvUrl] = useState<string>('https://iptv-org.github.io/iptv/index.m3u');
 
   // Settings & Filter states
   const [videoFilters, setVideoFilters] = useState<VideoFilters>(DEFAULT_VIDEO_FILTERS);
@@ -367,12 +372,30 @@ export default function App() {
     setPeerCount(1);
   };
 
+  if (isLiveTvActive) {
+    return (
+      <IPTVManager
+        initialUrl={liveTvUrl}
+        currentPlayingMedia={currentMedia}
+        onSelectChannel={(media) => {
+          handleSelectMedia(media);
+          setIsLiveTvActive(false);
+        }}
+        onBack={() => setIsLiveTvActive(false)}
+        onClose={() => setIsLiveTvActive(false)}
+      />
+    );
+  }
+
   if (!currentMedia) {
     return (
       <>
         <WelcomeLauncher
           onSelectMedia={handleSelectMedia}
-          onOpenIPTV={(initialUrl) => setIsLibraryOpen(true)}
+          onOpenIPTV={(initialUrl) => {
+            if (initialUrl) setLiveTvUrl(initialUrl);
+            setIsLiveTvActive(true);
+          }}
           recentMedia={recentMedia}
           onRemoveRecent={(id) => {
             removeRecentMedia(id);
@@ -399,6 +422,10 @@ export default function App() {
             clearRecentMedia();
             setRecentMedia([]);
           }}
+          onOpenLiveTV={(url) => {
+            if (url) setLiveTvUrl(url);
+            setIsLiveTvActive(true);
+          }}
         />
       </>
     );
@@ -419,6 +446,7 @@ export default function App() {
           p2pPeerCount={peerCount}
           isMusicMode={isMusicMode}
           onOpenLibrary={() => setIsLibraryOpen(true)}
+          onOpenLiveTV={() => setIsLiveTvActive(true)}
           onReturnHome={() => {
             setIsPlaying(false);
             setCurrentMedia(null);
@@ -496,6 +524,7 @@ export default function App() {
               snapshotFnRef.current = fn;
             }}
             onOpenLibrary={() => setIsLibraryOpen(true)}
+            onOpenLiveTV={() => setIsLiveTvActive(true)}
             onReturnHome={() => {
               setIsPlaying(false);
               setCurrentMedia(null);
@@ -596,6 +625,10 @@ export default function App() {
         onClearRecents={() => {
           clearRecentMedia();
           setRecentMedia([]);
+        }}
+        onOpenLiveTV={(url) => {
+          if (url) setLiveTvUrl(url);
+          setIsLiveTvActive(true);
         }}
       />
 
