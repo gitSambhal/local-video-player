@@ -5,6 +5,23 @@ All notable changes to **Vortex Video Player** will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v1.4.0] - 2026-09-04
+
+### Added
+- **Dedicated Broadcast Portal UI**: Transformed the Live TV view into an expansive, cinematic broadcast portal with deep dark themes, ambient illumination accents, and high-contrast typography.
+- **Hero Spotlight Channel of the Day**: Added an immersive featured broadcast banner showcasing verified premier streams (e.g., NASA TV HD, DW News Global, France 24, Red Bull TV) with 1-click live launch and ping statistics.
+- **Multi-Dimensional Filters**:
+  - **Category Topics**: Quick-filtering with real-time channel count badges across all topics.
+  - **Country & Regional Filter**: Dropdown filtering by country code and origin.
+  - **Language Filter**: Instant filtering by broadcast language (English, Spanish, French, German, Hindi, etc.).
+  - **Channel Health Status**: Quick filter chips for Working Online, Offline, and Untested channels.
+  - **Favorites & Watchlist**: Channel bookmarking system with persistence via `localStorage`.
+- **Tri-View Display Modes**: Seamless switching between **Bento Grid Cards**, **Broadcast EPG Table**, and **Wide Cinematic Cards**.
+- **Pagination & High-Performance Batching**: Smooth paginated rendering (24, 36, or 72 per page) ensuring fluid scrolling and responsive interaction across playlists with thousands of channels.
+- **Curated Feeds & Custom Drawer**: Collapsible custom M3U source configuration supporting direct URL inputs, local `.m3u` file uploads, and curated global category/country presets.
+
+---
+
 ## [v1.3.0] - 2026-09-04
 
 ### Changed
